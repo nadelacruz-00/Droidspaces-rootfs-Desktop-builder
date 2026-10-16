@@ -25,7 +25,7 @@ EnvironmentFile=-/etc/environment
 ExecStartPre=/bin/bash -c 'until [ -S /run/user/1000/bus ]; do sleep 1; done; export XDG_RUNTIME_DIR=/run/user/1000; until systemctl --user is-active --quiet dbus.service; do sleep 1; done'
 ExecStart=/usr/local/bin/start-desktop-session
 Restart=always
-RestartSec=10
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
