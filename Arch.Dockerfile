@@ -114,7 +114,7 @@ RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
     # Clean up the default alarm or arch user if it exists in the container
     (userdel -r alarm 2>/dev/null || true) && \
-    useradd -m -s /bin/bash ${USERNAME} && echo "${USERNAME}:1234" | chpasswd && \
+    useradd -m -s /bin/bash ${USERNAME} && echo "${USERNAME}:kali" | chpasswd && \
     systemctl enable sshd
 
 # Install the Droidspaces USB Manager for all Arch RootFS

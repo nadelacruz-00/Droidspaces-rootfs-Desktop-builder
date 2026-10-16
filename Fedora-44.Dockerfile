@@ -121,7 +121,7 @@ RUN if [ "$ENABLE_zh_tz_ARG" = "true" ]; then \
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
     # Delete the default user that may exist and create a new user
     (userdel -r debian 2>/dev/null || true) && \
-    useradd -m -s /bin/bash ${USERNAME} && echo "${USERNAME}:1234" | chpasswd
+    useradd -m -s /bin/bash ${USERNAME} && echo "${USERNAME}:kali" | chpasswd
 
 # Install the Droidspaces USB Manager for all Fedora RootFS
 RUN /usr/local/sbin/install-droidspaces-usb-manager --user "${USERNAME}"

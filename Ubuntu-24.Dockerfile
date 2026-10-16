@@ -132,7 +132,7 @@ RUN sed -i '/en_US.UTF-8/s/^# //' /etc/locale.gen && \
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
     # If the default debian user exists in the container, delete it together with its home directory
     (deluser --remove-home ubuntu || true) && \
-    useradd -m -s /bin/bash ${USERNAME} && echo "${USERNAME}:1234" | chpasswd && \
+    useradd -m -s /bin/bash ${USERNAME} && echo "${USERNAME}:kali" | chpasswd && \
     systemctl enable ssh
 
 # Install the Droidspaces USB Manager for all Ubuntu RootFS

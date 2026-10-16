@@ -26,7 +26,7 @@ on:
         description: Custom username
         required: false
         type: string
-        default: Gold
+        default: nadelacruz
       desktop:
         description: Desktop
         required: true

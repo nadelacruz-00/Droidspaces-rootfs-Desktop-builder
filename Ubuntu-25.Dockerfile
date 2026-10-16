@@ -136,7 +136,7 @@ RUN sed -i '/en_US.UTF-8/s/^# //' /etc/locale.gen && \
     # Ubuntu's default user is ubuntu; delete it to avoid conflicts
     (deluser --remove-home ubuntu || true) && \
     # Create the custom user and add it directly to the shadow group to ensure lock screen authentication permissions
-    useradd -m -s /bin/bash -G shadow ${USERNAME} && echo "${USERNAME}:1234" | chpasswd && \
+    useradd -m -s /bin/bash -G shadow ${USERNAME} && echo "${USERNAME}:kali" | chpasswd && \
     systemctl enable ssh
 
 # Install the Droidspaces USB Manager for all Ubuntu RootFS
