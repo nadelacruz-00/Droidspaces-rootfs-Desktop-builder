@@ -18,11 +18,12 @@ User=1000
 PAMName=login
 EnvironmentFile=-/etc/environment
 # The user manager starts asynchronously, so its D-Bus socket may not exist yet
-# when this unit is reached. user@UID.service also reports "ready" as soon as
-# dbus.socket is listening, while the bus daemon (dbus.service) only starts
-# afterwards, so waiting for the socket alone is not enough. Wait for the bus
-# daemon itself to be active before starting the session.
-ExecStartPre=/bin/bash -c 'until [ -S /run/user/1000/bus ]; do sleep 1; done; export XDG_RUNTIME_DIR=/run/user/1000; until systemctl --user is-active --quiet dbus.service; do sleep 1; done'
+# when this unit is reached. Wait for the socket: that is the correct readiness
+# signal, because dbus.socket activates dbus.service on demand.
+# Do NOT wait for dbus.service to be active - it is socket-activated and goes
+# inactive again as soon as it is idle, so such a check spins until the start
+# timeout and the session never runs.
+ExecStartPre=/bin/bash -c 'until [ -S /run/user/1000/bus ]; do sleep 1; done'
 ExecStart=/usr/local/bin/start-desktop-session
 Restart=always
 RestartSec=3
