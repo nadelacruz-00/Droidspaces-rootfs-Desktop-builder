@@ -14,9 +14,13 @@ User=1000
 PAMName=login
 EnvironmentFile=-/etc/environment
 # The user manager starts asynchronously, so its D-Bus socket may not exist yet
-# when this unit is reached. Wait for it, otherwise the session exits instantly
-# with status 0 and Restart=on-failure will not bring it back.
-ExecStartPre=/bin/bash -c 'until [ -S /run/user/1000/bus ]; do sleep 1; done'
+# when this unit is reached. Worse, user@UID.service reports "ready" as soon as
+# dbus.socket is listening, while the bus daemon (dbus.service) only starts
+# afterwards. Waiting for the socket alone is therefore not enough: the session
+# can start a few milliseconds too early, exit with status 0, and - because
+# Restart=on-failure only restarts on failure - never come back. Wait for the
+# bus daemon itself to be active before starting the session.
+ExecStartPre=/bin/bash -c 'until [ -S /run/user/1000/bus ]; do sleep 1; done; export XDG_RUNTIME_DIR=/run/user/1000; until systemctl --user is-active --quiet dbus.service; do sleep 1; done'
 ExecStart=/usr/local/bin/start-desktop-session
 Restart=on-failure
 RestartSec=2s
