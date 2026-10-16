@@ -1,6 +1,10 @@
 [Unit]
 Description=Start the Droidspaces desktop session
-After=network.target display-manager.service
+# user@1000.service is the systemd user manager: it provides the session D-Bus
+# (/run/user/1000/bus) that gnome-session and other desktop sessions require.
+# Without it gnome-session aborts with "No session bus running!".
+After=network.target display-manager.service user@1000.service
+Wants=user@1000.service
 StartLimitIntervalSec=60
 StartLimitBurst=5
 
@@ -9,6 +13,10 @@ Type=simple
 User=1000
 PAMName=login
 EnvironmentFile=-/etc/environment
+# The user manager starts asynchronously, so its D-Bus socket may not exist yet
+# when this unit is reached. Wait for it, otherwise the session exits instantly
+# with status 0 and Restart=on-failure will not bring it back.
+ExecStartPre=/bin/bash -c 'until [ -S /run/user/1000/bus ]; do sleep 1; done'
 ExecStart=/usr/local/bin/start-desktop-session
 Restart=on-failure
 RestartSec=2s
