@@ -33,18 +33,25 @@ The Niri profile writes the session and Anland/Mesa environment to `/etc/environ
 
 Prepare the Android device:
 
-1. Download the device-matching `virtual-drm-daemon.zip` from [Anland Releases](https://github.com/superturtlee/anland/releases), install it as documented by that project, and reboot.
-2. Download and install `app-debug.apk` from the same Release.
-3. Enable hardware access in the Droidspaces container settings.
-4. Use privileged mode and enable `nocaps` and `noseccomp`.
-5. Configure SELinux for the device: use permissive mode or allow the Anland display service to access the required socket.
-6. Add this bind mount in the advanced options:
+1. Install the Anland host APK `anland-v5.apk` from [Anland Releases](https://github.com/SuperTurtleDev/anland/releases/latest). On Droidspaces the APK is all you need — do **not** install the separate `anland-daemon` module, because Droidspaces starts its own daemon for every container with Anland enabled.
+2. Use a Droidspaces build that includes the per-container **Anland Display** switch.
+3. Enable **GPU Access** in the container settings, and **Hardware Access** too if your device or RootFS explicitly needs full hardware mapping.
+4. Enable **Anland Display**. This is the switch that starts the built-in per-container daemon.
+5. **Disable** Configure Termux:X11. Anland and Termux:X11 use separate display paths, and configuring both can cause environment-variable or service conflicts.
+6. Keep **Configure PulseAudio** disabled. The Anland producer reaches Anland's audio path through PipeWire, so Droidspaces does not need to configure PulseAudio separately. If the container previously used PulseAudio, remove the existing `PULSE_SERVER` variable as well.
+7. Keep SELinux **enforcing**. Droidspaces' Anland integration ships the required policy; only switch to permissive after confirming that an AVC denial is actually Anland-related.
+8. Set `nocaps` / `noseccomp` according to what your RootFS and Droidspaces version require.
 
-   ```text
-   /data/local/tmp/display_daemon.sock -> /run/display.sock
-   ```
+Do **not** add a manual bind mount for `/data/local/tmp/display_daemon.sock`. That mapping belongs to the chroot method. Droidspaces creates a separate socket per container (for example `anland-<UUID>.sock`) and automatically bind-mounts it at `/run/display.sock` inside the container.
 
-Start the container and log in as the normal user. For KDE run `startplasma-wayland`; KDE Mobile uses `startplasmamobile`; GNOME uses `gnome-session --session=gnome`.
+Start the container, then confirm the socket and the GPU node exist inside it:
+
+```sh
+test -S /run/display.sock
+test -e /dev/dri/renderD128
+```
+
+Log in as the normal user. For KDE run `startplasma-wayland`; KDE Mobile uses `startplasmamobile`; GNOME uses `gnome-session --session=gnome`. Then, on the Android side, use Droidspaces' **Launch Anland** action on the running-container card or details page — not the Anland launcher icon, which uses the global default socket rather than the container's.
 
 ### Install or update Anland desktop packages
 
