@@ -1,78 +1,78 @@
-中文 | [English](README_english.md) | [返回项目主页](../README.md)
+[Back to project README](../README.md)
 
-# scripts 目录说明
+# scripts Directory
 
-本目录存放 RootFS 构建期间使用的安装器、写入 RootFS 的维护工具以及 systemd 服务模板。多数文件由 Dockerfile 或 GitHub Actions 调用；运行前请先确认脚本应在 Linux 容器还是构建环境中执行。
+This directory holds the installers used while building the RootFS, the maintenance tools written into the RootFS, and the systemd service templates. Most files are invoked by the Dockerfiles or by GitHub Actions; before running one manually, first confirm whether the script belongs in a Linux container or in the build environment.
 
-## 文件一览
+## File Overview
 
-| 文件 | 运行位置 | 作用 |
+| File | Run in | Purpose |
 | --- | --- | --- |
-| `install-desktop.sh`、`desktops/*.sh` | RootFS 构建环境 | 按稳定 slug 分发桌面 profile，并维护软件包集合和桌面专属环境变量。 |
-| `configure-desktop.sh` | RootFS 构建环境 | 写入桌面/显示后端配置，调用 profile 环境配置并按需安装统一自启动服务。 |
-| `configure-chrome.sh` | RootFS 构建环境 | 在所有支持 Chrome 的镜像中安装 Chrome；Anland Wayland 镜像额外配置硬件加速启动参数和桌面入口。 |
-| `start-desktop-session.sh` | Linux 容器 | 根据 `/etc/droidspaces-desktop.conf` 启动实际桌面会话。 |
-| `tui/droidspaces-tui.sh` | ARM64 Linux 容器 | 提供统一终端菜单，调度 Mesa、Hangover Wine、Wine 字体和 Anland 安装器。 |
-| `tui/install-mesa.sh` | ARM64 Linux 容器 | 安装最新版 Android 容器专用 Mesa 和 MediaCodec VA-API 驱动，并锁定 Mesa 包。 |
-| `tui/install-hangover-wine.sh` | ARM64 Linux 容器 | 安装当前发行版对应的 Hangover Wine Release 包。 |
-| `tui/install-winefonts.sh` | Linux 容器 | 安装 Wine 字体包并刷新 fontconfig 字体缓存。 |
-| `tui/install-anland-kde.sh` | ARM64 Linux 容器 | 安装 Anland patched KWin/Xwayland Release 包，并锁定相关包。 |
-| `tui/install-anland-gnome.sh` | ARM64 Debian/Ubuntu/Arch 容器 | 安装 Anland patched Mutter Release 包，并锁定相关包。 |
-| `tui/install-anland-next.sh` | ARM64 Debian/Ubuntu/Fedora/Arch 容器 | 安装 Anland Next session 包（mini-wm + patched Xwayland + patched bubblewrap）。 |
-| `tui/install-anland-niri.sh` | ARM64 Arch Linux ARM 容器 | 安装 Anland Niri 与共享的 patched Xwayland 包。 |
-| `install-anland-desktop.sh` | RootFS 构建环境 | 根据桌面 slug 分发到 KDE、GNOME、Niri 或 Anland Next 安装器。 |
-| `lib/anland-build.sh` | RootFS 构建宿主 | 为 native/QEMU 构建统一解析 Anland 包族、Release tag 和 revision。 |
-| `install-usb-manager.sh` | Linux 容器 | 安装 Droidspaces USB Manager、发行版依赖、菜单入口和用户权限。 |
-| `systemd257.sh` | RootFS 构建环境 | 在需要时安装由包管理器管控的 systemd 257 完整包族，供旧 Android 内核使用。 |
-| `download-firmware` | Debian/Ubuntu 容器 | 安装并解压 `linux-firmware` 中的 `.zst` 固件。 |
-| `nosnap.sh` | Ubuntu RootFS 构建环境 | 移除 Snap、阻止其重新安装，并配置传统 deb 软件源。 |
-| `bashrc.sh` | Linux 用户 shell | 提供 Docker 快捷命令、温度查看和 SSH 文件传输等辅助函数。 |
-| `start/desktop-session.service` | Linux 容器的 systemd | 通过统一入口自动启动所选桌面会话。 |
-| `binfmt/*` | Linux 容器的 systemd/内核 | 检查并挂载 `binfmt_misc`，为 QEMU 跨架构执行做准备。 |
+| `install-desktop.sh`, `desktops/*.sh` | RootFS build environment | Dispatches stable desktop profile slugs and owns package sets and desktop-specific environment variables. |
+| `configure-desktop.sh` | RootFS build environment | Writes desktop/backend configuration, invokes profile environment setup, and optionally installs the common auto-start service. |
+| `configure-chrome.sh` | RootFS build environment | Installs Chrome in all supported images; for Anland Wayland images it additionally configures hardware-acceleration flags and desktop launchers. |
+| `start-desktop-session.sh` | Linux container | Starts the actual desktop session from `/etc/droidspaces-desktop.conf`. |
+| `tui/droidspaces-tui.sh` | ARM64 Linux container | Provides a unified terminal menu that dispatches the Mesa, Hangover Wine, Wine fonts, and Anland installers. |
+| `tui/install-mesa.sh` | ARM64 Linux container | Installs the latest Android-container Mesa and MediaCodec VA-API driver, then locks Mesa packages. |
+| `tui/install-hangover-wine.sh` | ARM64 Linux container | Installs the Hangover Wine Release packages matching the current distribution. |
+| `tui/install-winefonts.sh` | Linux container | Installs the Wine font bundle and refreshes the fontconfig cache. |
+| `tui/install-anland-kde.sh` | ARM64 Linux container | Installs Anland patched KWin/Xwayland Release packages and locks the related packages. |
+| `tui/install-anland-gnome.sh` | ARM64 Debian/Ubuntu/Arch container | Installs Anland patched Mutter Release packages and locks the related packages. |
+| `tui/install-anland-next.sh` | ARM64 Debian/Ubuntu/Fedora/Arch container | Installs the Anland Next session package (mini-wm + patched Xwayland + patched bubblewrap). |
+| `tui/install-anland-niri.sh` | ARM64 Arch Linux ARM container | Installs Anland Niri and the shared patched Xwayland package. |
+| `install-anland-desktop.sh` | RootFS build environment | Dispatches a desktop slug to the KDE, GNOME, Niri, or Anland Next installer. |
+| `lib/anland-build.sh` | RootFS build host | Resolves the Anland package family, Release tag, and revision uniformly for native/QEMU builds. |
+| `install-usb-manager.sh` | Linux container | Installs Droidspaces USB Manager, distribution dependencies, launchers, and user permissions. |
+| `systemd257.sh` | RootFS build environment | Installs a complete package-manager-owned systemd 257 package family when required, for use with old Android kernels. |
+| `download-firmware` | Debian/Ubuntu container | Installs and decompresses the `.zst` firmware in `linux-firmware`. |
+| `nosnap.sh` | Ubuntu RootFS build environment | Removes Snap, prevents it from being reinstalled, and configures traditional deb sources. |
+| `bashrc.sh` | Linux user shell | Adds helper functions for Docker shortcuts, thermal readings, and SSH file transfer. |
+| `start/desktop-session.service` | Linux container systemd | Starts the selected desktop session automatically through one common entry point. |
+| `binfmt/*` | Linux container systemd/kernel | Checks and mounts `binfmt_misc` to prepare for QEMU cross-architecture execution. |
 
 ## Droidspaces TUI
 
-构建出的 RootFS 内置 `droidspaces-tui` 命令，并提供较短的 `dstui`、`ds-tui` 别名。它以纯 Bash 提供统一终端菜单，不依赖 `dialog`，可在普通终端或 `adb shell -t` 中运行：
+Built RootFS images provide the `droidspaces-tui` command with the shorter `dstui` and `ds-tui` aliases. It is a pure Bash unified terminal menu with no `dialog` dependency and runs in a regular terminal or through `adb shell -t`:
 
 ```bash
 droidspaces-tui
-# 以下两个命令等价
+# These two commands are equivalent
 dstui
 ds-tui
 ```
 
-从仓库检出目录运行时使用：
+Run it from a repository checkout with:
 
 ```bash
 ./scripts/tui/droidspaces-tui.sh
 ```
 
-主菜单包含 Mesa 与 MediaCodec VA-API、Hangover Wine、Wine 字体及当前 RootFS 对应的桌面/会话更新项，只显示黄色“检测到更新”、绿色“当前已是最新版本”或红色“未安装”。桌面/会话项严格解析 `/etc/droidspaces-desktop.conf`：KDE/KDE mobile 只显示 Anland KDE，GNOME 只显示 Anland GNOME，Niri 只显示 Anland Niri，Anland Next 只显示其 session；`none` 或未知桌面进入选择页，可选择 Anland KDE、GNOME、Niri 或 Next session。旧 RootFS 缺少配置文件时才按已安装的 Anland 组件兜底，无法判断时同样进入选择页。选择组件后进入版本详情，可更新、安装或卸载。版本查询在后台并发运行，动态 Braille 符号表示正在查询，单项 10 秒内未取得有效版本时显示“超时”，且查询不会阻塞菜单输入。版本检测在启动 TUI 时运行，进入菜单、返回或输入无效内容不会重新检测；安装或卸载实际开始执行后，返回主菜单时会自动刷新一次。输入内容可见并支持退格，Loading 使用原地重绘，避免反复清屏闪烁。卸载 Mesa、KWin、Mutter 或 Niri 补丁会恢复发行版官方包，Hangover Wine 和 Wine 字体则移除自身内容。中文环境默认使用 CNB，其他语言环境默认使用 GitHub；下载源也可以统一改为自动测速、GitHub、`gh-proxy.com` 或 CNB。明确选择 CNB 时，TUI 不查询 GitHub API，安装器从同一 CNB Release 的同步清单取得附件名、SHA-256 和大小；旧发布未提供摘要时会明确提示并保留归档结构与包元数据校验。
+The main menu includes Mesa with MediaCodec VA-API, Hangover Wine, Wine fonts, and the desktop/session update entry for the current RootFS, and shows only a yellow `update available`, a green `up to date`, or a red `not installed`. The desktop/session entry is selected by strictly parsing `/etc/droidspaces-desktop.conf`: KDE/KDE mobile show only Anland KDE, GNOME shows only Anland GNOME, Niri shows only Anland Niri, and Anland Next shows only its session. `none` or an unknown desktop opens a selector for Anland KDE, GNOME, Niri, or the Next session. Installed Anland state is used only as a fallback for old RootFS images that have no config file; if no component can be inferred, the selector is used as well. Selecting a component opens its version details and update, install, or uninstall actions. Version lookups run concurrently in the background, a dynamic Braille symbol indicates an active lookup, and a lookup that has no valid result after 10 seconds is shown as `timeout`, without blocking menu input. Version detection runs when the TUI starts; entering or leaving menus and submitting invalid input do not restart it. After an install or uninstall actually starts, detection refreshes once upon returning to the main menu. Input is visible with backspace support, and Loading uses in-place redraws instead of repeatedly clearing the screen. Uninstalling patched Mesa, KWin, Mutter, or Niri restores the official distribution packages, while Hangover Wine and Wine fonts remove their own content. Chinese environments default to CNB, while other languages default to GitHub; the source can also be changed uniformly to automatic probing, GitHub, `gh-proxy.com`, or CNB. When CNB is explicitly selected, the TUI does not query the GitHub API: installers obtain asset names, SHA-256 values, and sizes from the synchronized manifest in the same CNB Release. Older releases with no digest provide a clear notice and retain archive-structure and package-metadata validation.
 
-主菜单的 `C` 进入缓存管理。可以只清理 Hangover Release 清单缓存，解决滚动 Release 更新后旧清单无法续传的问题；也可以清空 `/var/cache/hangover-wine` 下的全部下载缓存。两项操作都需要确认，清空全部缓存会导致下次安装重新下载软件包。
+Press `C` in the main menu to open cache management. The Hangover Release manifest can be removed by itself to recover from a stale manifest that can no longer be resumed after a rolling Release update, or all downloads under `/var/cache/hangover-wine` can be removed. Both actions require confirmation, and cleaning all downloads means the package archive must be downloaded again on the next installation.
 
-主菜单的 `U` 进入更新管理，可检查更新、只更新 TUI、只更新受管安装脚本，或更新全部。TUI 会临时获取固定标签 `Gold-bug-tui` 中的一次性安装脚本；GitHub/代理模式使用 GitHub Release API 与发布清单交叉校验，CNB 模式只读取 CNB 的同步清单进行 SHA-256 和大小校验，在替换前备份旧文件，并在操作结束后删除临时脚本。
+Press `U` in the main menu to open update management. It can check for updates, update only the TUI, update only managed installer scripts, or update everything. The TUI temporarily obtains the one-time installer from the fixed `Gold-bug-tui` tag. GitHub/proxy mode cross-checks the GitHub Release API and the release manifest; CNB mode reads only the synchronized CNB manifest for SHA-256 and size verification, backs up old files before replacement, and removes the temporary installer when the operation finishes.
 
-也可以在启动时指定初始来源：
+An initial source can also be selected on startup:
 
 ```bash
 droidspaces-tui --source cnb
 droidspaces-tui --source github
 ```
 
-## Mesa 安装器
+## Mesa Installer
 
-`install-mesa.sh` 在 GitHub/代理模式从分发 Release 选择当前发行版对应的 ARM64 Mesa 资产；CNB 模式则只读取同一 CNB Release 的 `mesa-distribution-manifest`。随后安装其中同步的 `msm_drm_drv_video.so`。支持 Debian 13、Ubuntu 24.04/25.10/26.04、Fedora 43/44 和 Arch Linux。媒体解码驱动按发行版安装到 libva 的默认驱动目录：Debian/Ubuntu 为 `/usr/lib/aarch64-linux-gnu/dri`，Fedora 为 `/usr/lib64/dri`，Arch Linux 为 `/usr/lib/dri`。
+`install-mesa.sh` selects the ARM64 Mesa asset for the current distribution from the distribution Release in GitHub/proxy mode; CNB mode reads only `mesa-distribution-manifest` from the matching CNB Release. It then installs the synchronized `msm_drm_drv_video.so` from that archive. It supports Debian 13, Ubuntu 24.04/25.10/26.04, Fedora 43/44, and Arch Linux. The media decode driver is installed in each distribution's default libva driver directory: `/usr/lib/aarch64-linux-gnu/dri` on Debian/Ubuntu, `/usr/lib64/dri` on Fedora, and `/usr/lib/dri` on Arch Linux.
 
-安装器会严格检查 Release tag、资产名和下载内容。GitHub/代理模式保留 GitHub Release API 的 SHA-256 交叉校验；CNB 模式只使用 CNB 分发清单中的 SHA-256 与大小，并继续校验随 Release 同步的媒体驱动 `SHA256SUMS`。下载支持断点续传，临时文件在退出时自动清理。
+The installer strictly validates Release tags, asset names, and downloaded content. GitHub/proxy mode retains GitHub Release API SHA-256 cross-checks; CNB mode uses only the SHA-256 values and sizes in the CNB distribution manifest, then still verifies the synchronized media-driver `SHA256SUMS`. Downloads can resume, and temporary files are removed automatically on exit.
 
-从仓库根目录交互运行：
+Run interactively from the repository root:
 
 ```bash
 sudo ./scripts/tui/install-mesa.sh
 ```
 
-未指定参数时，脚本会测试三个下载源并提示选择。也可以直接指定来源，适合无人值守构建：
+With no option, the script probes all three sources and prompts for a choice. Select a source directly for unattended builds:
 
 ```bash
 sudo ./scripts/tui/install-mesa.sh --1  # GitHub
@@ -80,136 +80,136 @@ sudo ./scripts/tui/install-mesa.sh --2  # gh-proxy.com
 sudo ./scripts/tui/install-mesa.sh --3  # ghproxy.net
 ```
 
-三个来源选项互斥，并同时作用于 Mesa 与媒体解码驱动下载。`-1`、`-2`、`-3` 是对应的短参数，`--help` 可查看内置帮助。第三方源仍需访问 `api.github.com` 取得可信元数据，并需要 `jq` 和 `sha256sum`；下载由 `curl` 或 `wget` 完成。
+The three source options are mutually exclusive and apply to both the Mesa and media decode driver downloads. `-1`, `-2`, and `-3` are the equivalent short options; use `--help` for built-in help. Third-party sources still require access to `api.github.com` for trusted metadata, plus `jq` and `sha256sum`. Downloads use either `curl` or `wget`.
 
-安装完成后，脚本按发行版写入持久锁定：
+After installation, the script writes persistent locks for each distribution:
 
-| 发行版 | 锁定位置与机制 |
+| Distribution | Lock location and mechanism |
 | --- | --- |
-| Debian/Ubuntu | `/etc/apt/preferences.d/hold-anland-package`，`Pin-Priority: -1` |
-| Fedora | `/etc/dnf/dnf.conf` 中脚本管理的 `exclude` 块 |
-| Arch | `/etc/pacman.conf` 中脚本管理的 `IgnorePkg` 块 |
+| Debian/Ubuntu | `/etc/apt/preferences.d/hold-anland-package` with `Pin-Priority: -1` |
+| Fedora | Installer-managed `exclude` block in `/etc/dnf/dnf.conf` |
+| Arch | Installer-managed `IgnorePkg` block in `/etc/pacman.conf` |
 
-锁定范围仅根据归档中实际安装的 Mesa 包生成。KWin/Xwayland 与 Mutter/Xwayland 分别由 `install-anland-kde.sh` 和 `install-anland-gnome.sh` 锁定。托管配置可重复运行，不会不断追加相同块；已有的非托管配置会保留。
+The lock list is generated only from the Mesa packages actually installed from the archive. KWin/Xwayland and Mutter/Xwayland are held separately by `install-anland-kde.sh` and `install-anland-gnome.sh`. Managed configuration can be run repeatedly and never appends the same block twice; existing unmanaged configuration is preserved.
 
-## 新增桌面 profile
+## Adding a Desktop Profile
 
-桌面名称、发行版能力和显示后端矩阵集中在 `lib/desktop-config.sh`。新增桌面时：
+Desktop names, distribution capabilities, and the display backend matrix live in `lib/desktop-config.sh`. To add a desktop:
 
-1. 在 `desktop_normalize`、`desktop_label` 和支持矩阵中登记稳定 slug。
-2. 新建可执行的 `desktops/<slug>.sh`，默认操作按 `/etc/os-release` 安装软件包，并实现 `configure-environment <backend>` 配置桌面专属环境变量。
-3. 在 `start-desktop-session.sh` 添加会话命令；`install-desktop.sh` 会自动发现合法 slug 对应的可执行 profile。
-4. 在中英文工作流入口的 `desktop` 下拉中加入显示名称。
+1. Register its stable slug in `desktop_normalize`, `desktop_label`, and the support matrix.
+2. Create an executable `desktops/<slug>.sh` whose default action installs packages according to `/etc/os-release` and whose `configure-environment <backend>` action configures desktop-specific environment variables.
+3. Add its session command in `start-desktop-session.sh`; `install-desktop.sh` automatically discovers the executable profile for a valid slug.
+4. Add its display label to the `desktop` dropdown in both the Chinese and English workflow entry files.
 
-七个 Dockerfile 和核心工作流已经使用通用 profile 接口，普通 X11 桌面无需复制 Dockerfile。依赖 patched Wayland 包的 profile 还需在 `lib/anland-build.sh` 的 `anland_package_family` 中登记包族。
+All seven Dockerfiles and the core workflows already use the generic profile interface, so an ordinary X11 desktop does not need copied Dockerfiles. Profiles that depend on patched Wayland packages must also register their package family in `anland_package_family` in `lib/anland-build.sh`.
 
-## Anland KDE 安装器
+## Anland KDE Installer
 
-`install-anland-kde.sh` 默认从 `Goldzxcbug/droidspaces-package` 的固定滚动 Release `anland-kde-packages` 读取 `anland-kde-manifest`，为 Debian 13、Ubuntu 26.04、Fedora 43/44 或 Arch Linux ARM64 安装匹配版本的 patched KWin/Xwayland 包。
+`install-anland-kde.sh` reads `anland-kde-manifest` from the fixed `anland-kde-packages` rolling Release in `Goldzxcbug/droidspaces-package` by default, and installs the matching version of the patched KWin/Xwayland packages for Debian 13, Ubuntu 26.04, Fedora 43/44, or Arch Linux ARM64.
 
 ```bash
 sudo ./scripts/tui/install-anland-kde.sh
 ```
 
-它同样支持 `--1`、`--2`、`--3` 选择 GitHub、`gh-proxy.com` 或 `ghproxy.net`；省略时测速后交互选择。镜像下载的清单与归档均使用 GitHub API digest 校验。脚本按系统 locale 输出中文或英文，并通过 APT hold、DNF exclude 或 Pacman `IgnorePkg` 防止系统更新覆盖安装结果。
+It also accepts `--1`, `--2`, or `--3` to select GitHub, `gh-proxy.com`, or `ghproxy.net`; with no option, it probes the speeds and prompts for a choice. Both the manifest and the archive from a mirror are verified against GitHub API digests. The script prints messages in Chinese or English according to the system locale, and uses APT hold, DNF exclude, or Pacman `IgnorePkg` to prevent system updates from overwriting the installed result.
 
-安装公开 Fork 发布的包时只需覆盖仓库；Fork 必须提供固定标签 `anland-kde-packages`：
+To install packages published by a public fork, override only the repository. The fork must provide the fixed `anland-kde-packages` tag:
 
 ```bash
 sudo ANLAND_RELEASE_REPOSITORY=owner/repository \
   ./scripts/tui/install-anland-kde.sh --1
 ```
 
-Anland 宿主模块、App、SELinux、绑定挂载和 Droidspaces 权限仍需按[Wayland 与 Anland 配置教程](../docs/zh/桌面与Anland.md#wayland-和-anland-宿主端配置)完成。
+The Anland host module, app, SELinux, bind mount, and Droidspaces permissions must still be configured as described in the [Wayland and Anland setup guide](../docs/en/desktop-and-anland.md#anland-wayland-host-setup).
 
-## Anland GNOME 安装器
+## Anland GNOME Installer
 
-`install-anland-gnome.sh` 默认从固定滚动 Release `anland-gnome-packages` 读取 `anland-gnome-manifest`，为 Debian 13、Ubuntu 26.04 或 Arch Linux ARM64 安装 patched Mutter 运行时包。Arch 只安装 `mutter` 运行包，并通过 pacman `IgnorePkg` 防止升级覆盖；Debian/Ubuntu 使用 APT hold。GNOME 的各发行版软件包均由 `droidspaces-package` 发布，RootFS 构建与后续更新都通过 Release 清单获取对应归档。下载源选择、镜像 digest 校验和命令行参数与 KDE 安装器一致。
+`install-anland-gnome.sh` reads `anland-gnome-manifest` from the fixed `anland-gnome-packages` rolling Release by default, and installs patched Mutter runtime packages for Debian 13, Ubuntu 26.04, or Arch Linux ARM64. On Arch it installs only the `mutter` runtime package and uses pacman `IgnorePkg` to prevent upgrades from overwriting it; Debian/Ubuntu use APT hold. The GNOME packages for every distribution are published by `droidspaces-package`, and both RootFS builds and later updates fetch the matching archive through the Release manifest. Its source selection, mirror digest checks, and command-line arguments match the KDE installer.
 
 ```bash
 sudo ./scripts/tui/install-anland-gnome.sh
 ```
 
-使用公开 Fork 的包时同时覆盖 GNOME 仓库变量：
+Override the GNOME repository variable as well when using packages from a public fork:
 
 ```bash
 sudo ANLAND_RELEASE_REPOSITORY=owner/repository \
   ./scripts/tui/install-anland-gnome.sh --1
 ```
 
-## Anland Next 安装器
+## Anland Next Installer
 
-`install-anland-next.sh` 默认从固定滚动 Release `anland-session-packages` 读取 `anland-session-manifest`，为 Debian 13、Ubuntu 26.04、Fedora 43/44 或 Arch Linux ARM64 安装 `anland-session` 包。下载源选择、镜像 digest 校验和命令行参数与 KDE 安装器一致。
+`install-anland-next.sh` reads `anland-session-manifest` from the fixed `anland-session-packages` rolling Release by default, and installs the `anland-session` package for Debian 13, Ubuntu 26.04, Fedora 43/44, or Arch Linux ARM64. Its source selection, mirror digest checks, and command-line arguments match the KDE installer.
 
 ```bash
 sudo ./scripts/tui/install-anland-next.sh
 ```
 
-包内是三个预编译产物：`anland-miniwm`，以及打过 kgsl/turnip glamor 补丁的 Xwayland 与打过 mountinfo 索引补丁的 bubblewrap。后两者装在 `/usr/lib/anland/`，由会话把它前置到 PATH，发行版的同名二进制不会被覆盖，因此**不需要**像 KDE/GNOME 那样做软件包锁定 —— 这个包不替换任何发行版文件。
+The package carries three prebuilt components: `anland-miniwm`, a Xwayland patched for kgsl/turnip glamor, and a bubblewrap patched for the mountinfo index. The latter two live in `/usr/lib/anland/`, which the session puts first on `PATH`; the distribution binaries of the same name are never overwritten, so unlike KDE/GNOME **no package locking is needed** — this package replaces no distribution files.
 
-会话本体是包内的 `/usr/bin/anland-session`（会话 D-Bus + wayland 链接 + rootless Xwayland + mini-wm），配合 `/usr/lib/systemd/user/anland-session.service` 使用，不往用户家目录写任何东西。
+The session itself is the packaged `/usr/bin/anland-session` (session D-Bus + wayland link + rootless Xwayland + mini-wm), used together with `/usr/lib/systemd/user/anland-session.service`, and it writes nothing into a user's home directory.
 
-Anland Next profile 默认让 Qt 6 应用使用原生 Wayland，并显式安装对应平台插件；直接通过终端启动时，用户 shell 会读取运行中的 `~/.anlandx-env`。
+The Anland Next profile defaults Qt 6 applications to native Wayland and explicitly installs the matching platform plugin; when started directly from a terminal, the user shell reads the running `~/.anlandx-env`.
 
-使用公开 Fork 的包时覆盖仓库变量：
+Override the repository variable when using packages from a public fork:
 
 ```bash
 sudo ANLAND_NEXT_RELEASE_REPOSITORY=owner/repository \
   ./scripts/tui/install-anland-next.sh --1
 ```
 
-## Anland Niri 安装器
+## Anland Niri Installer
 
-`install-anland-niri.sh` 从固定滚动 Release `anland-niri-packages` 读取 `anland-niri-manifest`，为 Arch Linux ARM64 安装 `niri-anland` 和配套的 patched `xorg-xwayland`。RootFS profile 还会安装 `xdg-desktop-portal-gtk`、Alacritty 终端和常用 Niri 工具。Niri 与 Anland KDE 共用 patched Xwayland；安装器会阻止冲突安装，并在卸载时保留 KDE 使用的包。TUI 安装会在 `DESKTOP=none` 时切换到 Niri、设置 `DISPLAY_BACKEND=anland-wayland`，并调用 Niri profile 配置会话与 Anland/Mesa 环境；已有其他桌面配置会保留。卸载当前 Niri 配置会恢复 `none/x11`。
+`install-anland-niri.sh` reads `anland-niri-manifest` from the fixed `anland-niri-packages` rolling Release and installs `niri-anland` together with its matching patched `xorg-xwayland` package on Arch Linux ARM64. The RootFS profile also installs `xdg-desktop-portal-gtk`, the Alacritty terminal, and common Niri tools. Niri and Anland KDE share the patched Xwayland; the installer prevents conflicting installs and preserves the package used by KDE during uninstall. When `DESKTOP=none`, TUI installation switches to Niri, sets `DISPLAY_BACKEND=anland-wayland`, and calls the Niri profile to configure the session and the Anland/Mesa environment; existing other desktop configurations are retained. Uninstalling the active Niri configuration restores `none/x11`.
 
 ```bash
 sudo ./scripts/tui/install-anland-niri.sh
 ```
 
-## USB Manager 安装器
+## USB Manager Installer
 
-`install-usb-manager.sh` 支持 Debian/Ubuntu、Fedora 和 Arch，自动安装 PyQt5、ADB、udev、NTFS、exFAT 等依赖，并安装 `usb-manager`、`usb-passthrough` 和 `usb-storage-passthrough` 命令。
+`install-usb-manager.sh` supports Debian/Ubuntu, Fedora, and Arch. It automatically installs dependencies such as PyQt5, ADB, udev, NTFS, and exFAT, followed by the `usb-manager`, `usb-passthrough`, and `usb-storage-passthrough` commands.
 
 ```bash
 sudo ./scripts/install-usb-manager.sh --user "$USER"
 ```
 
-`--user USER` 指定获得 USB 管理权限和桌面入口的用户。省略时依次尝试 `SUDO_USER`、当前登录用户和第一个普通用户。开发或离线测试可以通过 `--source DIR` 使用本地 Droidspaces-USB-Manager 源码目录；运行 `--help` 查看完整参数。
+`--user USER` selects the user that receives USB management permissions and desktop launchers. When omitted, the installer tries `SUDO_USER`, the currently logged-in user, and then the first regular user. Development or offline tests can use a local Droidspaces-USB-Manager source directory through `--source DIR`; run `--help` for all options.
 
-在普通 Arch 系统上，安装器会照常安装 `systemd` 和其他依赖。若检测到 `/etc/droidspaces-systemd257`，重复运行时会保留 Pacman 的 `IgnorePkg` 锁定，不再把 `systemd` 作为显式安装目标；PyQt5、ADB、NTFS、exFAT 等 USB Manager 依赖仍会正常补齐。
+On a regular Arch system, the installer continues to install `systemd` and the remaining dependencies normally. When `/etc/droidspaces-systemd257` exists, a repeated installation preserves Pacman's `IgnorePkg` lock and no longer names `systemd` as an explicit install target; USB Manager dependencies such as PyQt5, ADB, NTFS, and exFAT are still installed as needed.
 
-RootFS 导入 Droidspaces 时必须开启硬件访问，否则容器无法看到 `/sys/bus/usb` 和 `/sys/bus/scsi`。
+Hardware access must be enabled when importing the RootFS into Droidspaces, or the container will not be able to see `/sys/bus/usb` and `/sys/bus/scsi`.
 
-## systemd 257 兼容脚本
+## systemd 257 Compatibility Script
 
-`systemd257.sh` 供 Dockerfile 在 `enable_systemd257=true` 时调用。它检查已安装的 systemd 主版本：257 或更低版本直接跳过，更高版本则从 `Goldzxcbug/droidspaces-package` 的冻结兼容 Release `systemd257-packages` 安装对应发行版的完整原生包族，并锁定 systemd 相关包。新包先发布到包含源码版本和仓库提交的不可变标签；RootFS 只有在该 Release 完整发布后，才会一次性更新标签、各平台 SHA-256、预期包数和包仓库提交。
+Dockerfiles call `systemd257.sh` when `enable_systemd257=true`. It checks the installed systemd major version: version 257 and older are skipped directly, while newer versions install the complete native package family for their distribution from the frozen compatibility Release `systemd257-packages` in `Goldzxcbug/droidspaces-package`, and then lock the systemd-related packages. New package sets are first published under an immutable tag containing the source version and the repository commit; the RootFS updates the tag, the per-platform SHA-256 values, the expected package count, and the package-repository commit all at once, only after that Release is fully published.
 
 ```bash
 sudo ./scripts/systemd257.sh
 ```
 
-这是面向旧 Android 内核的实验性兼容步骤。生成 RootFS 后应实际验证 systemd、D-Bus、udev、网络和桌面会话。
+This is an experimental compatibility step for old Android kernels. After generating a RootFS, actually verify systemd, D-Bus, udev, networking, and desktop sessions.
 
-## 固件工具
+## Firmware Tool
 
-`download-firmware` 会被复制为 Debian 13 和 Ubuntu 24/25/26 RootFS 中的 `/usr/local/bin/download-firmware`，但不会自动执行。需要时在容器中运行：
+`download-firmware` is copied to `/usr/local/bin/download-firmware` in Debian 13 and Ubuntu 24/25/26 RootFS images, but it is not run automatically. Run it inside the container when required:
 
 ```bash
 sudo download-firmware
 ```
 
-脚本安装 `zstd` 和 `linux-firmware`，解压 `/lib/firmware` 下的 `.zst` 文件，并修复指向压缩文件的软链接。成功后创建 `/var/lib/.fw-setup-completed`；该标记目前不用于跳过重复运行。
+The script installs `zstd` and `linux-firmware`, decompresses the `.zst` files under `/lib/firmware`, and repairs symlinks that point to compressed files. A successful run creates `/var/lib/.fw-setup-completed`; this marker currently does not skip later runs.
 
-## 其他构建和启动文件
+## Other Build and Startup Files
 
-- `nosnap.sh` 仅用于 Ubuntu。它停止并卸载 Snap、清理残留、写入 APT pin 防止重新安装，并配置项目所需的传统 deb 来源。它会修改系统软件包和 APT 配置，应在目标 RootFS 或构建层中以 root 运行。
-- `start/desktop-session.service` 是通用服务模板，通过 `start-desktop-session.sh` 读取桌面配置，以 RootFS 的 UID 1000 用户启动对应会话，并对异常退出进行限频重启。
-- `binfmt/qemu-binfmt-register.sh` 与对应 service 检查内核是否支持 `binfmt_misc`，必要时挂载它；不支持时安全跳过。实际跨架构执行仍需要 QEMU 解释器。
-- `bashrc.sh` 是追加到用户 shell 环境的辅助配置，不应作为独立安装器执行。
+- `nosnap.sh` is Ubuntu-only. It stops and removes Snap, cleans up leftovers, writes APT pins that prevent reinstallation, and configures the traditional deb sources required by the project. It modifies system packages and APT configuration and must run as root in the target RootFS or build layer.
+- `start/desktop-session.service` is the common service template. It reads the desktop configuration through `start-desktop-session.sh`, starts the corresponding session as the RootFS UID 1000 user, and rate-limits restarts after abnormal exits.
+- `binfmt/qemu-binfmt-register.sh` and its service check whether the kernel supports `binfmt_misc` and mount it when necessary; unsupported kernels are skipped safely. Actual cross-architecture execution still requires QEMU interpreters.
+- `bashrc.sh` is helper configuration appended to a user shell environment, not a standalone installer.
 
-## 开发检查
+## Development Checks
 
-修改 shell 脚本后，至少运行语法检查；安装了 ShellCheck 时也应执行静态检查：
+After changing a shell script, run at least a syntax check; run the static checks as well when ShellCheck is installed:
 
 ```bash
 bash -n scripts/tui/install-mesa.sh
@@ -222,4 +222,4 @@ shellcheck scripts/tui/install-mesa.sh
 shellcheck scripts/tui/droidspaces-tui.sh
 ```
 
-涉及软件包安装和锁定配置的改动，还应分别在 APT、DNF 和 Pacman 容器中验证，并重复运行一次检查幂等性。
+Changes involving package installation and lock configuration should also be verified in APT, DNF, and Pacman containers, and run twice to check idempotency.

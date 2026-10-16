@@ -51,41 +51,41 @@ RUN chmod +x /usr/local/sbin/install-anland-* /usr/local/sbin/install-mesa /usr/
     pacman -Sy --noconfirm archlinux-keyring glibc && \
     pacman -Su --noconfirm && \
     pacman -S --noconfirm --needed \
-    # 核心工具组件
+    # Core utility components
     bash jq dialog coreutils file findutils grep sed gawk curl wget ca-certificates bash-completion dbus systemd pam fastfetch logrotate \
-    # 用户请求的基础开发/编辑工具
+    # Basic development/editing tools requested by the user
     git nano sudo \
-    # 网络与 SSH 工具
+    # Networking and SSH tools
     openssh net-tools iptables iputils iproute2 bind \
-    # 用于系统监控的 procps 进程工具
+    # procps process tools for system monitoring
     procps-ng \
-    # 核心内核模块支持
+    # Core kernel module support
     kmod tzdata tar && \
     /usr/local/sbin/install-desktop "$DESKTOP" && \
-    #输入法 fcitx5 (可选)
+    #Input method fcitx5 (optional)
     if [ "$ENABLE_srf_ARG" = "true" ]; then \
         pacman -S --noconfirm --needed fcitx5-im; \
     fi && \
     if [ "$ENABLE_srf_ARG" = "true" ] && [ "$ENABLE_zh_tz_ARG" = "true" ]; then \
         pacman -S --noconfirm --needed fcitx5-chinese-addons; \
     fi && \
-    ## 开发工具集成 (可选)
+    ## Development toolchain (optional)
     if [ "$ENABLE_kfgj_ARG" = "true" ]; then \
         pacman -S --noconfirm --needed \
         base-devel cmake clang llvm python python-pip; \
     fi && \
-    ## 压缩工具扩展 (可选)
+    ## Additional compression tools (optional)
     if [ "$ENABLE_zip_ARG" = "true" ]; then \
         pacman -S --noconfirm --needed \
         zip unzip p7zip bzip2 xz tar gzip; \
     fi && \
-    ## docker (可选)
+    ## docker (optional)
     if [ "$ENABLE_docker_ARG" = "true" ]; then \
         pacman -S --noconfirm --needed \
         docker docker-compose; \
     fi
 
-# 启用 Anland 时从固定滚动 GitHub Release 安装对应桌面的 ARM64 包。
+# When Anland is enabled, install the ARM64 packages of the matching desktop from the pinned rolling GitHub Release.
 RUN if [ "$DISPLAY_BACKEND" = "anland-wayland" ]; then \
         echo "--> [enabled] Installing Anland $DESKTOP packages (${ANLAND_PACKAGE_REVISION})..." && \
         ANLAND_RELEASE_REPOSITORY="$ANLAND_RELEASE_REPOSITORY" \
@@ -94,7 +94,7 @@ RUN if [ "$DISPLAY_BACKEND" = "anland-wayland" ]; then \
         echo "--> [enabled] Anland $DESKTOP support installed"; \
     fi
 
-# 配置 Locale 与 SSH
+# Configure Locale and SSH
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     if [ "$ENABLE_zh_tz_ARG" = "true" ]; then \
         ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
@@ -107,20 +107,20 @@ RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
         echo "LANG=en_US.UTF-8" > /etc/locale.conf && \
         echo "LC_ALL=en_US.UTF-8" >> /etc/locale.conf; \
     fi && \
-    # 配置 SSH 服务（禁用 root 密码登录，但允许常规密码认证）
+    # Configure the SSH service (disable root password login but allow normal password authentication)
     mkdir -p /var/run/sshd && \
     ssh-keygen -A && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
-    # 如果容器内存在默认的 alarm 或 arch 用户，则清理
+    # Clean up the default alarm or arch user if it exists in the container
     (userdel -r alarm 2>/dev/null || true) && \
     useradd -m -s /bin/bash ${USERNAME} && echo "${USERNAME}:1234" | chpasswd && \
     systemctl enable sshd
 
-# 为所有 Arch RootFS 安装 Droidspaces USB Manager
+# Install the Droidspaces USB Manager for all Arch RootFS
 RUN /usr/local/sbin/install-droidspaces-usb-manager --user "${USERNAME}"
 
-# 为 droidspaces 的 su/su -l 入口建立完整的 systemd 用户会话。
+# Set up a full systemd user session for droidspaces' su/su -l entries.
 RUN for pam_file in /etc/pam.d/su /etc/pam.d/su-l; do \
         if ! grep -qE '^[[:space:]-]*session[[:space:]].*pam_systemd\.so' "$pam_file"; then \
             sed -i '/^[[:space:]]*session[[:space:]].*pam_unix\.so/a\session        optional        pam_systemd.so' "$pam_file"; \
@@ -129,9 +129,9 @@ RUN for pam_file in /etc/pam.d/su /etc/pam.d/su-l; do \
     grep -qE '^[[:space:]]*session[[:space:]].*pam_env\.so' /etc/pam.d/su-l || \
         echo 'session        required        pam_env.so' >> /etc/pam.d/su-l
 
-# 初始化环境变量文件；桌面专属变量由对应 profile 管理。
+# Initialize the environment variable file; desktop-specific variables are managed by the corresponding profile.
 RUN : > /etc/environment
-# 音频选择
+# Audio selection
 RUN if [ "$PulseAudio" = "socket" ]; then \
         echo "PULSE_SERVER=unix:/tmp/.pulse-socket" >> /etc/environment; \
     elif [ "$PulseAudio" = "tcp" ]; then \
@@ -148,7 +148,7 @@ RUN if [ "$ENABLE_8gen2_wayland_ARG" = "true" ]; then \
         echo 'FD_DEV_FEATURES=enable_tp_ubwc_flag_hint=1' >> /etc/environment; \
     fi
 
-# 输入法与桌面会话配置
+# Input method and desktop session configuration
 COPY scripts/start/ /tmp/droidspaces-start/
 RUN <<'EOF_RUN'
     if [ "$ENABLE_srf_ARG" = "true" ]; then
@@ -185,17 +185,17 @@ EOF
     rm -rf /tmp/droidspaces-start
 EOF_RUN
 
-# 下载并安装 Mesa
+# Download and install Mesa
 RUN if [ "$ENABLE_mesa_ARG" = "true" ]; then \
         /usr/local/sbin/install-mesa --1; \
     else \
-        echo "--> [跳过] 未开启 Mesa 驱动安装"; \
+        echo "--> [skipped] Mesa driver installation is not enabled"; \
     fi
 
-# 安装并配置原生 ARM64 Google Chrome。
+# Install and configure native ARM64 Google Chrome.
 RUN /usr/local/sbin/configure-chrome "$DESKTOP" "$DISPLAY_BACKEND"
 
-# 修复容器内的 DHCP 网络服务配置
+# Fix the DHCP network service configuration inside the container
 RUN mkdir -p /etc/systemd/network && \
     cat <<'EOF' > /etc/systemd/network/10-eth-dhcp.network
 [Match]
@@ -211,28 +211,28 @@ UseDomains=yes
 RouteMetric=100
 EOF
 
-# 应用 Android 运行环境兼容性修复（重点针对 Systemd 和 Udev）
+# Apply Android runtime compatibility fixes (mainly for Systemd and Udev)
 RUN <<'EOF_RUN'
-# --- 1. 常规兼容性修复 ---
-# 建立 Android 网络权限组
+# --- 1. General compatibility fixes ---
+# Create the Android network permission groups
 grep -q '^aid_inet:' /etc/group     || echo 'aid_inet:x:3003:'    >> /etc/group
 grep -q '^aid_net_raw:' /etc/group || echo 'aid_net_raw:x:3004:' >> /etc/group
 grep -q '^aid_net_admin:' /etc/group || echo 'aid_net_admin:x:3005:' >> /etc/group
 
-# 检查并创建 droidspaces-gpu 组
+# Check for and create the droidspaces-gpu group
 getent group droidspaces-gpu >/dev/null || groupadd -g 786 -r droidspaces-gpu
-# 为 root 用户赋予访问 Android 硬件及网络的权限组
+# Give the root user the permission groups for accessing Android hardware and networking
 usermod -a -G aid_inet,aid_net_raw,input,video,tty,droidspaces-gpu root || true
 usermod -a -G aid_inet,aid_net_raw,input,video,tty,wheel,droidspaces-gpu ${USERNAME} || true
 
-# 确保 Arch 赋予 sudo 权限给 wheel 组
+# Make sure Arch grants sudo privileges to the wheel group
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 
-# --- 2. 针对 Systemd 的特定修复 ---
+# --- 2. Systemd-specific fixes ---
 ln -sf /dev/null /etc/systemd/system/systemd-networkd-wait-online.service
 ln -sf /dev/null /etc/systemd/system/systemd-journald-audit.socket
 
-# 优化 Journald 日志配置
+# Optimize the Journald logging configuration
 cat >> /etc/systemd/journald.conf << 'EOT'
 [Journal]
 ReadKMsg=no
@@ -268,7 +268,7 @@ else
     done
 fi
 
-# 在 systemd-logind 中禁用电源键行为处理
+# Disable power key handling in systemd-logind
 mkdir -p /etc/systemd/logind.conf.d
 cat > /etc/systemd/logind.conf.d/99-power-key.conf << 'EOF'
 [Login]
@@ -279,7 +279,7 @@ HandlePowerKeyLongPress=ignore
 HandlePowerKeyLongPressHibernate=ignore
 EOF
 
-# 应用 udev 覆盖配置
+# Apply the udev override configuration
 mkdir -p /etc/systemd/system/systemd-udev-trigger.service.d
 cat > /etc/systemd/system/systemd-udev-trigger.service.d/override.conf << 'EOF'
 [Service]
@@ -287,13 +287,13 @@ ExecStart=
 ExecStart=-/usr/bin/udevadm trigger --subsystem-match=usb --subsystem-match=block --subsystem-match=input --subsystem-match=tty --subsystem-match=net
 EOF
 
-# 针对只读文件系统路径覆盖
+# Override for read-only filesystem paths
 for unit in systemd-udevd.service systemd-udev-trigger.service systemd-udev-settle.service systemd-udevd-kernel.socket systemd-udevd-control.socket; do
     mkdir -p "/etc/systemd/system/${unit}.d"
     printf "[Unit]\nConditionPathIsReadWrite=\n" > "/etc/systemd/system/${unit}.d/99-readonly-fix.conf"
 done
 
-# 限制特定的网络服务
+# Restrict specific network services
 for unit in NetworkManager.service dhcpcd.service systemd-resolved.service systemd-networkd.service; do
     if [ -f "$GUEST_SYSTEMD_PATH/$unit" ] || [ -f "/etc/systemd/system/multi-user.target.wants/$unit" ]; then
         mkdir -p "/etc/systemd/system/${unit}.d"
@@ -305,7 +305,7 @@ EOF
     fi
 done
 
-# 仅在启用硬件访问时限制 udev 服务启动
+# Only restrict udev service startup when hardware access is enabled
 for unit in systemd-udevd.service systemd-udev-trigger.service systemd-udev-settle.service; do
     if [ -f "$GUEST_SYSTEMD_PATH/$unit" ] || [ -f "/etc/systemd/system/multi-user.target.wants/$unit" ]; then
         mkdir -p "/etc/systemd/system/${unit}.d"
@@ -317,7 +317,7 @@ EOF
     fi
 done
 
-# 针对 Android 环境微调日志轮转
+# Fine-tune log rotation for the Android environment
 if [ -f /etc/logrotate.conf ]; then
     sed -i 's/^#maxsize.*/maxsize 50M/' /etc/logrotate.conf
     if ! grep -q "maxsize 50M" /etc/logrotate.conf; then
@@ -328,7 +328,7 @@ fi
 echo "Post-extraction fixes applied on $(date)" > /etc/droidspaces
 EOF_RUN
 
-# 注入 binfmt 服务脚本
+# Inject the binfmt service scripts
 COPY scripts/binfmt/qemu-binfmt-register.sh /usr/local/bin/
 COPY scripts/binfmt/qemu-binfmt-register.service /etc/systemd/system/
 
@@ -348,15 +348,15 @@ RUN if [ "$ENABLE_binfmt_ARG" = "true" ]; then \
         rm -f /usr/local/bin/qemu-binfmt-register.sh /etc/systemd/system/qemu-binfmt-register.service; \
     fi
 
-# 可选：为 systemd 258+ 发行版构建 systemd 257 旧内核兼容运行时。
+# Optional: build the systemd 257 legacy-kernel compatibility runtime for systemd 258+ distributions.
 RUN if [ "$ENABLE_systemd257_ARG" = "true" ]; then \
         bash /usr/local/sbin/systemd257; \
     else \
-        echo "--> [跳过] 未启用 systemd 257 旧内核兼容"; \
+        echo "--> [skipped] systemd 257 legacy kernel compatibility is not enabled"; \
     fi
 
-# 彻底清理 pacman 缓存
-# 打包前删除仅用于构建的一次性脚本；TUI 和运行时脚本保留。
+# Thoroughly clean the pacman cache
+# Remove the one-off build-only scripts before packaging; the TUI and runtime scripts are kept.
 RUN rm -f \
         /usr/local/sbin/configure-chrome \
         /usr/local/sbin/configure-desktop \
@@ -367,6 +367,6 @@ RUN rm -f \
         /usr/local/sbin/nosnap && \
     rm -rf /usr/local/lib/droidspaces/desktops && \
     rm -rf /var/cache/pacman/pkg/* /var/lib/pacman/sync/*
-# 阶段 2：将完整的根文件系统导出到 scratch（空白层），以便外部直接提取或打包成 tarfs
+# Stage 2: export the complete root filesystem to scratch (an empty layer) so it can be extracted directly or packaged into a tarfs
 FROM scratch AS export
 COPY --from=customizer / /

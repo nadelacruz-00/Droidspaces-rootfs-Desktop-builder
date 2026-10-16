@@ -7,12 +7,13 @@ configure_environment() {
     local backend="${1:-}"
     local environment_file="${ROOTFS_DIR:-}/etc/environment"
     local assignment key
-    # 只放 anland 这条链路真正读或发布的变量：ANLAND_RUNTIME_DIR 是宿主
-    # runtime dir 的容器视角（droidspaces 绑定挂载到 /run/anland），三个 GPU
-    # 变量是 kgsl/freedreno 路径，XDG_SESSION_TYPE 由会话转发给应用。
-    # WAYLAND_DISPLAY 故意不写：会话会检查 $ANLAND_RUNTIME_DIR/$WAYLAND_DISPLAY
-    # 处的宿主 socket，再把应用侧的 wayland-anland 链接发布出去，写死任一种
-    # 都会把会话弄坏。
+    # Only the variables this anland chain really reads or publishes are set:
+    # ANLAND_RUNTIME_DIR is the container view of the host runtime dir
+    # (droidspaces bind-mounts it to /run/anland), the three GPU variables are
+    # the kgsl/freedreno paths, and the session forwards XDG_SESSION_TYPE to
+    # apps. WAYLAND_DISPLAY is deliberately left out: the session checks the
+    # host socket at $ANLAND_RUNTIME_DIR/$WAYLAND_DISPLAY and then publishes the
+    # application-side wayland-anland link, so hardcoding either one breaks it.
     local -a assignments=(
         XDG_SESSION_CLASS=user
         XDG_SESSION_TYPE=wayland
@@ -25,7 +26,7 @@ configure_environment() {
     )
 
     [[ "$backend" == anland-wayland ]] || {
-        echo "Anland Next 显示后端无效：$backend" >&2
+        echo "Invalid Anland Next display backend: $backend" >&2
         return 1
     }
 
@@ -66,7 +67,7 @@ install_apt() {
                 language-pack-zh-hans qt6-translations-l10n
             ;;
         *)
-            echo "Anland Next 不支持当前系统：$ID $VERSION_ID" >&2
+            echo "Anland Next does not support the current system: $ID $VERSION_ID" >&2
             return 1
             ;;
     esac
@@ -75,7 +76,7 @@ install_apt() {
 install_fedora() {
     case "$VERSION_ID" in
         43|44) ;;
-        *) echo "Anland Next 不支持 Fedora $VERSION_ID" >&2; return 1 ;;
+        *) echo "Anland Next does not support Fedora $VERSION_ID" >&2; return 1 ;;
     esac
 
     dnf install -y --setopt=install_weak_deps=False \
@@ -99,7 +100,7 @@ install_profile() {
         debian|ubuntu) install_apt ;;
         fedora) install_fedora ;;
         arch|archarm|archlinux) install_arch ;;
-        *) echo "Anland Next 不支持当前发行版：$ID" >&2; return 1 ;;
+        *) echo "Anland Next does not support the current distribution: $ID" >&2; return 1 ;;
     esac
 }
 
@@ -107,7 +108,7 @@ case "${1:-install}" in
     install) install_profile ;;
     configure-environment) configure_environment "${2:-}" ;;
     *)
-        echo "Anland Next profile 操作无效：$1" >&2
+        echo "Invalid Anland Next profile action: $1" >&2
         exit 1
         ;;
 esac

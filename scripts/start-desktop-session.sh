@@ -2,7 +2,7 @@
 set -euo pipefail
 
 config="${DROIDSPACES_DESKTOP_CONFIG:-/etc/droidspaces-desktop.conf}"
-[[ -r "$config" ]] || { echo "缺少桌面配置文件：$config" >&2; exit 1; }
+[[ -r "$config" ]] || { echo "Missing desktop configuration file: $config" >&2; exit 1; }
 source "$config"
 
 case "${DESKTOP:-}:${DISPLAY_BACKEND:-}" in
@@ -11,14 +11,15 @@ case "${DESKTOP:-}:${DISPLAY_BACKEND:-}" in
     kde:anland-wayland) command_line='exec startplasma-wayland' ;;
     kde-mobile:anland-wayland) command_line='exec startplasmamobile' ;;
     gnome:anland-wayland) command_line='exec gnome-session --session=gnome' ;;
-    # Anland Next 的会话本体就是包内的 anland-session（会话 D-Bus + wayland
-    # 链接 + rootless Xwayland + mini-wm），不经过任何桌面环境。用 /usr/bin 下
-    # 的系统路径，不依赖用户家目录里的副本；XDG_RUNTIME_DIR 由脚本自己算，
-    # systemd 用户管理器不可用时它只告警继续，所以不需要用户级单元先起来。
+    # The Anland Next session body is the anland-session shipped in the package
+    # (session D-Bus + wayland link + rootless Xwayland + mini-wm) and does not go
+    # through any desktop environment. Use the system path under /usr/bin, not a
+    # copy in the user home; the script computes XDG_RUNTIME_DIR itself and only
+    # warns when the systemd user manager is unavailable, so no user unit is needed.
     anland-next:anland-wayland) command_line='exec /usr/bin/anland-session' ;;
     niri:anland-wayland) command_line='exec /usr/bin/niri-anland' ;;
     *)
-        echo "不支持的桌面会话：${DESKTOP:-未设置}/${DISPLAY_BACKEND:-未设置}" >&2
+        echo "Unsupported desktop session: ${DESKTOP:-unset}/${DISPLAY_BACKEND:-unset}" >&2
         exit 1
         ;;
 esac

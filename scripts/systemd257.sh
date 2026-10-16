@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# 为旧 Android 内核安装由发行版原生打包规则构建的完整 systemd 257 包族。
+# Install the complete systemd 257 package family, built with the distro's native packaging rules, for old Android kernels.
 set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
@@ -8,8 +8,8 @@ export DEBIAN_FRONTEND=noninteractive
 readonly SYSTEMD257_TARGET_MAJOR=257
 readonly SYSTEMD257_STATE="/etc/droidspaces-systemd257"
 readonly DEFAULT_RELEASE_REPOSITORY="Goldzxcbug/droidspaces-package"
-# 这是滚动兼容 Release。每次安装都会从 GitHub Release API 读取目标资产的
-# 官方 SHA-256，再校验实际下载的归档，避免包更新后需要同步修改本脚本。
+# Rolling compatibility Release: each install fetches the official SHA-256 of the target
+# asset from the GitHub Release API and verifies the archive, so package updates need no script change.
 readonly DEFAULT_RELEASE_TAG="systemd257-packages"
 readonly GITHUB_API_URL="https://api.github.com"
 readonly MAX_ARCHIVE_BYTES=$((128 * 1024 * 1024))
@@ -57,7 +57,7 @@ trap cleanup EXIT
 
 require_root() {
   if (( EUID != 0 )); then
-    die "请用 root 运行：sudo bash systemd257.sh"
+    die "Please run as root: sudo bash systemd257.sh"
   fi
 }
 
@@ -164,7 +164,7 @@ has_mismatched_family_packages() {
   while IFS=$'\t' read -r name version; do
     major="$(package_version_major "$version" || true)"
     if [[ "$major" != "$SYSTEMD257_TARGET_MAJOR" ]]; then
-      log "检测到非 257 包：$name $version"
+      log "detected a non-257 package: $name $version"
       return 0
     fi
   done < <(list_installed_family_packages)
@@ -214,33 +214,33 @@ detect_target() {
 verify_target_tools_and_architecture() {
   local architecture
 
-  command -v curl >/dev/null 2>&1 || die "缺少 curl，无法下载预构建包族"
+  command -v curl >/dev/null 2>&1 || die "curl is missing, cannot download the prebuilt package family"
   if [[ -z "${SYSTEMD257_ARCHIVE_SHA256:-}" ]]; then
-    command -v jq >/dev/null 2>&1 || die "缺少 jq，无法读取 GitHub Release 校验值"
+    command -v jq >/dev/null 2>&1 || die "jq is missing, cannot read the GitHub Release checksum"
   fi
-  command -v tar >/dev/null 2>&1 || die "缺少 tar，无法解压预构建包族"
-  command -v sha256sum >/dev/null 2>&1 || die "缺少 sha256sum，无法验证预构建包族"
+  command -v tar >/dev/null 2>&1 || die "tar is missing, cannot extract the prebuilt package family"
+  command -v sha256sum >/dev/null 2>&1 || die "sha256sum is missing, cannot verify the prebuilt package family"
 
   case "$PACKAGE_MANAGER" in
     apt)
-      command -v apt-get >/dev/null 2>&1 || die "Ubuntu 目标缺少 apt-get"
-      command -v dpkg-query >/dev/null 2>&1 || die "Ubuntu 目标缺少 dpkg-query"
-      command -v dpkg-deb >/dev/null 2>&1 || die "Ubuntu 目标缺少 dpkg-deb"
+      command -v apt-get >/dev/null 2>&1 || die "the Ubuntu target is missing apt-get"
+      command -v dpkg-query >/dev/null 2>&1 || die "the Ubuntu target is missing dpkg-query"
+      command -v dpkg-deb >/dev/null 2>&1 || die "the Ubuntu target is missing dpkg-deb"
       architecture="$(dpkg --print-architecture)"
-      [[ "$architecture" == arm64 ]] || die "Ubuntu 包族仅支持 arm64，当前为 $architecture"
+      [[ "$architecture" == arm64 ]] || die "the Ubuntu package family only supports arm64, current is $architecture"
       ;;
     dnf)
-      command -v dnf >/dev/null 2>&1 || die "Fedora 目标缺少 dnf"
-      command -v rpm >/dev/null 2>&1 || die "Fedora 目标缺少 rpm"
+      command -v dnf >/dev/null 2>&1 || die "the Fedora target is missing dnf"
+      command -v rpm >/dev/null 2>&1 || die "the Fedora target is missing rpm"
       architecture="$(rpm --eval '%{_arch}')"
-      [[ "$architecture" == aarch64 ]] || die "Fedora 包族仅支持 aarch64，当前为 $architecture"
+      [[ "$architecture" == aarch64 ]] || die "the Fedora package family only supports aarch64, current is $architecture"
       ;;
     pacman)
-      command -v pacman >/dev/null 2>&1 || die "Arch 目标缺少 pacman"
-      command -v bsdtar >/dev/null 2>&1 || die "Arch 目标缺少 bsdtar"
+      command -v pacman >/dev/null 2>&1 || die "the Arch target is missing pacman"
+      command -v bsdtar >/dev/null 2>&1 || die "the Arch target is missing bsdtar"
       architecture="$(uname -m)"
       [[ "$architecture" == aarch64 || "$architecture" == arm64 ]] ||
-        die "Arch 包族仅支持 aarch64，当前为 $architecture"
+        die "the Arch package family only supports aarch64, current is $architecture"
       ;;
   esac
 }
@@ -251,14 +251,14 @@ fetch_official_release_metadata() {
   api_url="${GITHUB_API_URL}/repos/${RELEASE_REPOSITORY}/releases/tags/${RELEASE_TAG}"
   if ! OFFICIAL_RELEASE_METADATA="$(curl --proto '=https' --tlsv1.2 -fsSL \
     --retry 5 --retry-all-errors --connect-timeout 30 "$api_url")"; then
-    die "无法读取 GitHub Release 元数据：${RELEASE_REPOSITORY}@${RELEASE_TAG}"
+    die "cannot read GitHub Release metadata: ${RELEASE_REPOSITORY}@${RELEASE_TAG}"
   fi
 }
 
 release_asset_sha256() {
   local digest
 
-  # 专用包标签可标记为 prerelease，以免占用仓库的 Latest release；草稿仍不可使用。
+  # The dedicated package tag may be marked prerelease so that it does not occupy the repository's Latest release; drafts are still unusable.
   if ! digest="$(jq -er --arg name "$ARCHIVE_NAME" --arg tag "$RELEASE_TAG" '
     if .tag_name != $tag then
       error("release tag mismatch")
@@ -269,19 +269,19 @@ release_asset_sha256() {
       | if length == 1 then .[0] else error("asset digest is not unique") end
     end
   ' <<< "$OFFICIAL_RELEASE_METADATA" 2>/dev/null)"; then
-    die "GitHub Release 未提供 ${ARCHIVE_NAME} 的唯一 SHA-256 校验值"
+    die "GitHub Release did not provide a unique SHA-256 checksum for ${ARCHIVE_NAME}"
   fi
   [[ "$digest" =~ ^sha256:([0-9A-Fa-f]{64})$ ]] ||
-    die "GitHub Release 为 ${ARCHIVE_NAME} 返回了无效的 SHA-256 校验值"
+    die "GitHub Release returned an invalid SHA-256 checksum for ${ARCHIVE_NAME}"
 
   printf '%s\n' "${BASH_REMATCH[1],,}"
 }
 
 resolve_archive_checksum() {
   [[ "$RELEASE_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] ||
-    die "SYSTEMD257_RELEASE_REPOSITORY 不是有效的 GitHub owner/repository：$RELEASE_REPOSITORY"
+    die "SYSTEMD257_RELEASE_REPOSITORY is not a valid GitHub owner/repository: $RELEASE_REPOSITORY"
   [[ "$RELEASE_TAG" =~ ^[A-Za-z0-9._+-]+$ ]] ||
-    die "SYSTEMD257_RELEASE_TAG 包含不支持的字符：$RELEASE_TAG"
+    die "SYSTEMD257_RELEASE_TAG contains unsupported characters: $RELEASE_TAG"
 
   if [[ -n "${SYSTEMD257_ARCHIVE_SHA256:-}" ]]; then
     EXPECTED_ARCHIVE_SHA256="$SYSTEMD257_ARCHIVE_SHA256"
@@ -292,9 +292,9 @@ resolve_archive_checksum() {
     ARCHIVE_CHECKSUM_SOURCE="github-release-api"
   fi
   [[ "$EXPECTED_ARCHIVE_SHA256" =~ ^[0-9a-fA-F]{64}$ ]] ||
-    die "SYSTEMD257_ARCHIVE_SHA256 不是有效的 SHA-256"
+    die "SYSTEMD257_ARCHIVE_SHA256 is not a valid SHA-256"
   EXPECTED_ARCHIVE_SHA256="${EXPECTED_ARCHIVE_SHA256,,}"
-  log "已从 ${ARCHIVE_CHECKSUM_SOURCE} 获取 ${ARCHIVE_NAME} 的 SHA-256"
+  log "obtained the SHA-256 for ${ARCHIVE_NAME} from ${ARCHIVE_CHECKSUM_SOURCE}"
 }
 
 download_archive() {
@@ -303,7 +303,7 @@ download_archive() {
 
   if [[ -n "${SYSTEMD257_ARCHIVE_FILE:-}" ]]; then
     [[ -f "$SYSTEMD257_ARCHIVE_FILE" ]] ||
-      die "本地归档不存在：$SYSTEMD257_ARCHIVE_FILE"
+      die "local archive does not exist: $SYSTEMD257_ARCHIVE_FILE"
     log "using local archive: $SYSTEMD257_ARCHIVE_FILE"
     cp -- "$SYSTEMD257_ARCHIVE_FILE" "$archive_file"
   else
@@ -313,10 +313,10 @@ download_archive() {
       --connect-timeout 30 "$download_url" -o "$archive_file"
   fi
 
-  [[ -s "$archive_file" ]] || die "下载后的归档为空：$ARCHIVE_NAME"
+  [[ -s "$archive_file" ]] || die "the downloaded archive is empty: $ARCHIVE_NAME"
   archive_bytes="$(stat -c '%s' "$archive_file")"
   (( archive_bytes <= MAX_ARCHIVE_BYTES )) ||
-    die "归档超过 ${MAX_ARCHIVE_BYTES} 字节限制：$archive_bytes"
+    die "archive exceeds the ${MAX_ARCHIVE_BYTES}-byte limit: $archive_bytes"
   printf '%s  %s\n' "$EXPECTED_ARCHIVE_SHA256" "$archive_file" | sha256sum -c -
 }
 
@@ -332,17 +332,17 @@ extract_and_verify_archive() {
     [[ "$entry" == ./ ]] && continue
     entry="${entry#./}"
     [[ "$entry" =~ ^[A-Za-z0-9][A-Za-z0-9._+~:-]*$ ]] ||
-      die "归档包含不安全或非预期路径：$entry"
+      die "archive contains an unsafe or unexpected path: $entry"
   done < <(tar -tzf "$archive_file")
 
   tar -xzf "$archive_file" --no-same-owner --no-same-permissions -C "$PACKAGE_DIR"
-  [[ -f "$PACKAGE_DIR/manifest.env" ]] || die "归档缺少 manifest.env"
-  [[ -f "$PACKAGE_DIR/SHA256SUMS" ]] || die "归档缺少内部 SHA256SUMS"
+  [[ -f "$PACKAGE_DIR/manifest.env" ]] || die "archive is missing manifest.env"
+  [[ -f "$PACKAGE_DIR/SHA256SUMS" ]] || die "archive is missing the internal SHA256SUMS"
 
   while read -r _ checksum_name; do
     checksum_name="${checksum_name#\*}"
     [[ "$checksum_name" =~ ^[A-Za-z0-9][A-Za-z0-9._+~:-]*$ ]] ||
-      die "内部 SHA256SUMS 包含不安全路径：$checksum_name"
+      die "internal SHA256SUMS contains an unsafe path: $checksum_name"
   done < "$PACKAGE_DIR/SHA256SUMS"
   (cd "$PACKAGE_DIR" && sha256sum --check --strict SHA256SUMS)
 
@@ -367,11 +367,11 @@ extract_and_verify_archive() {
   esac
 
   if (( ${#actual_package_files[@]} != ${#MANIFEST_FILES[@]} )); then
-    die "manifest 包数量与归档不一致：manifest=${#MANIFEST_FILES[@]} archive=${#actual_package_files[@]}"
+    die "manifest package count does not match the archive: manifest=${#MANIFEST_FILES[@]} archive=${#actual_package_files[@]}"
   fi
   if [[ "$(printf '%s\n' "${MANIFEST_FILES[@]}" | sort)" != \
         "$(printf '%s\n' "${actual_package_files[@]}" | sort)" ]]; then
-    die "manifest 包列表与归档内容不一致"
+    die "manifest package list does not match the archive contents"
   fi
 }
 
@@ -390,34 +390,34 @@ manifest_value() {
 verify_manifest() {
   local format manifest_target architecture compat_patch package_count
 
-  format="$(manifest_value format)" || die "manifest.env 的 format 字段无效"
-  manifest_target="$(manifest_value target)" || die "manifest.env 的 target 字段无效"
-  architecture="$(manifest_value architecture)" || die "manifest.env 的 architecture 字段无效"
+  format="$(manifest_value format)" || die "invalid format field in manifest.env"
+  manifest_target="$(manifest_value target)" || die "invalid target field in manifest.env"
+  architecture="$(manifest_value architecture)" || die "invalid architecture field in manifest.env"
   SOURCE_VERSION="$(manifest_value systemd_source_version)" ||
-    die "manifest.env 的 systemd_source_version 字段无效"
+    die "invalid systemd_source_version field in manifest.env"
   PACKAGING_SOURCE="$(manifest_value packaging_source)" ||
-    die "manifest.env 的 packaging_source 字段无效"
-  compat_patch="$(manifest_value compat_patch)" || die "manifest.env 的 compat_patch 字段无效"
-  package_count="$(manifest_value package_count)" || die "manifest.env 的 package_count 字段无效"
+    die "invalid packaging_source field in manifest.env"
+  compat_patch="$(manifest_value compat_patch)" || die "invalid compat_patch field in manifest.env"
+  package_count="$(manifest_value package_count)" || die "invalid package_count field in manifest.env"
 
-  [[ "$format" == 1 ]] || die "不支持 manifest 格式：$format"
+  [[ "$format" == 1 ]] || die "unsupported manifest format: $format"
   [[ "$manifest_target" == "$TARGET" ]] ||
-    die "归档目标不匹配：需要 $TARGET，得到 $manifest_target"
-  [[ "$architecture" == aarch64 ]] || die "归档架构不是 aarch64：$architecture"
+    die "archive target mismatch: expected $TARGET, got $manifest_target"
+  [[ "$architecture" == aarch64 ]] || die "archive architecture is not aarch64: $architecture"
   [[ "$(package_version_major "$SOURCE_VERSION" || true)" == "$SYSTEMD257_TARGET_MAJOR" ]] ||
-    die "归档源码版本不是 systemd 257：$SOURCE_VERSION"
+    die "archive source version is not systemd 257: $SOURCE_VERSION"
   [[ "$compat_patch" == 0001-droidspaces-old-kernel-compat.patch ]] ||
-    die "归档未声明 Droidspaces 旧内核兼容补丁"
-  [[ "$package_count" =~ ^[1-9][0-9]*$ ]] || die "manifest 包数量无效：$package_count"
+    die "archive does not declare the Droidspaces old-kernel compatibility patch"
+  [[ "$package_count" =~ ^[1-9][0-9]*$ ]] || die "invalid manifest package count: $package_count"
   mapfile -t MANIFEST_FILES < <(sed -n 's/^package=//p' "$PACKAGE_DIR/manifest.env")
   (( ${#MANIFEST_FILES[@]} == package_count )) ||
-    die "manifest package_count 与 package 条目数量不一致"
+    die "manifest package_count does not match the number of package entries"
 
   local package_file
   for package_file in "${MANIFEST_FILES[@]}"; do
     [[ "$package_file" =~ ^[A-Za-z0-9][A-Za-z0-9._+~:-]*$ ]] ||
-      die "manifest 包文件名不安全：$package_file"
-    [[ -f "$PACKAGE_DIR/$package_file" ]] || die "manifest 指定的包不存在：$package_file"
+      die "unsafe manifest package file name: $package_file"
+    [[ -f "$PACKAGE_DIR/$package_file" ]] || die "package specified by the manifest does not exist: $package_file"
   done
 }
 
@@ -428,17 +428,17 @@ register_package() {
   local path="$4"
   local major
 
-  [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9+._-]*$ ]] || die "软件包名无效：$name"
-  is_systemd_family_name "$name" || die "归档包含非 systemd 包族成员：$name"
-  [[ -z "${PACKAGE_PATH[$name]+present}" ]] || die "归档包含重复软件包：$name"
+  [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9+._-]*$ ]] || die "invalid package name: $name"
+  is_systemd_family_name "$name" || die "archive contains a non-systemd-family member: $name"
+  [[ -z "${PACKAGE_PATH[$name]+present}" ]] || die "archive contains a duplicate package: $name"
 
   major="$(package_version_major "$version" || true)"
   [[ "$major" == "$SYSTEMD257_TARGET_MAJOR" ]] ||
-    die "软件包 $name 的版本不是 257：$version"
+    die "package $name version is not 257: $version"
 
   case "$PACKAGE_MANAGER:$architecture" in
     apt:arm64|apt:all|dnf:aarch64|dnf:noarch|pacman:aarch64|pacman:any) ;;
-    *) die "软件包 $name 的架构不匹配：$architecture" ;;
+    *) die "package $name architecture mismatch: $architecture" ;;
   esac
 
   PACKAGE_NAMES+=("$name")
@@ -453,27 +453,27 @@ load_package_metadata() {
     path="$PACKAGE_DIR/$package_file"
     case "$PACKAGE_MANAGER" in
       apt)
-        [[ "$package_file" == *.deb ]] || die "Ubuntu 归档包含非 DEB 文件：$package_file"
+        [[ "$package_file" == *.deb ]] || die "the Ubuntu archive contains a non-DEB file: $package_file"
         name="$(dpkg-deb -f "$path" Package)"
         version="$(dpkg-deb -f "$path" Version)"
         architecture="$(dpkg-deb -f "$path" Architecture)"
         ;;
       dnf)
-        [[ "$package_file" == *.rpm ]] || die "Fedora 归档包含非 RPM 文件：$package_file"
+        [[ "$package_file" == *.rpm ]] || die "the Fedora archive contains a non-RPM file: $package_file"
         name="$(rpm -qp --queryformat '%{NAME}' "$path")"
         version="$(rpm -qp --queryformat '%{VERSION}-%{RELEASE}' "$path")"
         architecture="$(rpm -qp --queryformat '%{ARCH}' "$path")"
         ;;
       pacman)
         [[ "$package_file" == *.pkg.tar.* && "$package_file" != *.sig ]] ||
-          die "Arch 归档包含非 pacman 包：$package_file"
+          die "the Arch archive contains a non-pacman package: $package_file"
         name="$(bsdtar -xOf "$path" .PKGINFO | sed -n 's/^pkgname = //p')"
         version="$(bsdtar -xOf "$path" .PKGINFO | sed -n 's/^pkgver = //p')"
         architecture="$(bsdtar -xOf "$path" .PKGINFO | sed -n 's/^arch = //p')"
         ;;
     esac
     [[ -n "$name" && -n "$version" && -n "$architecture" ]] ||
-      die "无法读取软件包元数据：$package_file"
+      die "cannot read package metadata: $package_file"
     register_package "$name" "$version" "$architecture" "$path"
   done
 }
@@ -511,7 +511,7 @@ ensure_no_uncovered_mismatched_packages() {
     major="$(package_version_major "$version" || true)"
     if [[ "$major" != "$SYSTEMD257_TARGET_MAJOR" ]] &&
        [[ -z "${PACKAGE_PATH[$name]+present}" ]]; then
-      die "已安装的 $name ($version) 没有对应的 257 包，拒绝产生混合运行时"
+      die "installed $name ($version) has no corresponding 257 package, refusing to create a hybrid runtime"
     fi
   done < <(list_installed_family_packages)
 }
@@ -528,7 +528,7 @@ collect_dnf_replacement_candidates() {
     if package_is_installed "$name"; then
       DNF_REPLACEMENT_NAMES+=("$name")
       DNF_REPLACEMENT_SET["$name"]=1
-      log "DNF 将用完整 systemd 主包替换冲突包：$name"
+      log "DNF will replace the conflicting package with the complete systemd main package: $name"
     fi
   done
 }
@@ -536,7 +536,7 @@ collect_dnf_replacement_candidates() {
 add_selected_package() {
   local name="$1"
 
-  [[ -n "${PACKAGE_PATH[$name]+present}" ]] || die "归档缺少核心软件包：$name"
+  [[ -n "${PACKAGE_PATH[$name]+present}" ]] || die "archive is missing a core package: $name"
   if [[ -z "${SELECTED_SET[$name]+present}" ]]; then
     SELECTED_SET["$name"]=1
     SELECTED_NAMES+=("$name")
@@ -579,8 +579,8 @@ select_packages() {
     add_selected_package "$name"
   done
 
-  (( ${#SELECTED_FILES[@]} > 0 )) || die "没有选出可安装的软件包"
-  log "将安装 ${#SELECTED_FILES[@]} 个 257 包：${SELECTED_NAMES[*]}"
+  (( ${#SELECTED_FILES[@]} > 0 )) || die "no installable packages were selected"
+  log "installing ${#SELECTED_FILES[@]} 257 packages: ${SELECTED_NAMES[*]}"
 }
 
 snapshot_dnf_package_names() {
@@ -609,12 +609,12 @@ verify_controlled_dnf_removals() {
   done < "$before_file"
 
   if (( ${#unexpected_removals[@]} > 0 )); then
-    die "DNF 事务意外删除了未授权的软件包：${unexpected_removals[*]}"
+    die "the DNF transaction unexpectedly removed unauthorized packages: ${unexpected_removals[*]}"
   fi
 
   for name in "${DNF_REPLACEMENT_NAMES[@]}"; do
     [[ -z "${installed_after[$name]+present}" ]] ||
-      die "DNF 未能用完整 systemd 主包替换冲突包：$name"
+      die "DNF failed to replace the conflicting package with the complete systemd main package: $name"
   done
 }
 
@@ -714,7 +714,7 @@ install_selected_packages() {
     pacman)
       local transaction_config="$WORK_DIR/pacman.conf"
       prepare_pacman_transaction_config "$transaction_config" ||
-        die "/etc/pacman.conf 缺少有效的 [options] 段"
+        die "/etc/pacman.conf is missing a valid [options] section"
       pacman --config "$transaction_config" -U --noconfirm "${SELECTED_FILES[@]}"
       pacman -Dk
       ;;
@@ -750,7 +750,7 @@ verify_installed_family() {
       expected="${PACKAGE_VERSION[$name]}"
       actual="$(installed_package_version "$name")"
       [[ "$actual" == "$expected" ]] ||
-        die "检测到混合包版本：$name 已安装 $actual，归档要求 $expected"
+        die "mixed package versions detected: $name has $actual installed, the archive requires $expected"
       MANAGED_NAMES+=("$name")
     fi
   done
@@ -758,7 +758,7 @@ verify_installed_family() {
   while IFS=$'\t' read -r name actual; do
     major="$(package_version_major "$actual" || true)"
     [[ "$major" == "$SYSTEMD257_TARGET_MAJOR" ]] ||
-      die "安装后仍存在非 257 systemd 包族成员：$name $actual"
+      die "non-257 systemd family members still present after install: $name $actual"
   done < <(list_installed_family_packages)
 
   for expected in /usr/lib/systemd/systemd /lib/systemd/systemd; do
@@ -767,22 +767,22 @@ verify_installed_family() {
       break
     fi
   done
-  [[ -n "$daemon" ]] || die "安装后找不到 systemd PID 1"
+  [[ -n "$daemon" ]] || die "systemd PID 1 not found after install"
   [[ "$(package_owner "$daemon")" == systemd ]] ||
-    die "systemd PID 1 未登记到 systemd 主包：$daemon"
+    die "systemd PID 1 is not registered to the systemd main package: $daemon"
 
   if command -v ldd >/dev/null 2>&1; then
     ldd_output="$(ldd "$daemon" 2>&1 || true)"
     if grep -q 'not found' <<< "$ldd_output"; then
       printf '%s\n' "$ldd_output" >&2
-      die "systemd 257 PID 1 存在缺失的动态链接库"
+      die "systemd 257 PID 1 has missing shared libraries"
     fi
   fi
 
   installed_version_line="$(systemd_version_line || true)"
   installed_major="$(systemd_major_from_line "$installed_version_line")"
   [[ "$installed_major" == "$SYSTEMD257_TARGET_MAJOR" ]] ||
-    die "运行时版本验证失败：${installed_version_line:-unknown}"
+    die "runtime version verification failed: ${installed_version_line:-unknown}"
   CURRENT_VERSION_LINE="$installed_version_line"
 }
 
@@ -796,8 +796,8 @@ write_dnf_config_with_systemd_hold() {
   local input_file="$1"
   local output_file="$2"
 
-  # 不能使用 sed 的 0,/pattern/ 范围替换：该范围会命中 [main] 和其间的每一行，
-  # 从而把 systemd* 拼到段头后面。这里先完整读取配置，只在 [main] 段写入锁定项。
+  # Do not use sed's 0,/pattern/ range substitution: that range would hit [main] and every line
+  # in between, appending systemd* after the section header. Read the whole config first and write the hold only into the [main] section.
   awk '
     function option_name(line) {
       if (line ~ /^[[:space:]]*exclude[[:space:]]*=/) {
@@ -862,8 +862,8 @@ write_dnf_config_with_systemd_hold() {
         }
       }
 
-      # DNF 将 exclude 与 excludepkgs 视为同一追加列表。像 Anland/Mesa 一样，
-      # 若另一种键已存在则使用不同的键，避免写入重复键或改动别的托管块。
+      # DNF treats exclude and excludepkgs as the same appended list. As with Anland/Mesa,
+      # use a different key when the other one already exists, to avoid duplicate keys or disturbing other managed blocks.
       if (saw_exclude && !saw_excludepkgs) {
         target_option = "excludepkgs"
       } else if (!saw_exclude && saw_excludepkgs) {
@@ -924,18 +924,18 @@ configure_dnf_holds() {
   if [[ ! -e "$dnf_config" ]]; then
     install -m 0644 /dev/null "$dnf_config"
   fi
-  [[ -f "$dnf_config" ]] || die "DNF 配置不是普通文件：$dnf_config"
+  [[ -f "$dnf_config" ]] || die "the DNF configuration is not a regular file: $dnf_config"
 
   if ! write_dnf_config_with_systemd_hold "$dnf_config" "$temporary_config"; then
-    die "无法生成 DNF 的 systemd 257 锁定配置"
+    die "unable to generate the DNF systemd 257 hold configuration"
   fi
   cp -p "$dnf_config" "$backup_config"
   install -m 0644 "$temporary_config" "$dnf_config"
-  # 立即让 DNF 解析最终配置；避免配置损坏在 Dockerfile 的后续层才暴露。
+  # Have DNF parse the final configuration immediately, so that config corruption is not only exposed in a later Dockerfile layer.
   if ! dnf check; then
     install -m 0644 "$backup_config" "$dnf_config" ||
-      die "DNF 锁定配置校验失败，且无法恢复原配置：$dnf_config"
-    die "DNF 拒绝 systemd 257 锁定配置，已恢复原配置"
+      die "DNF hold configuration validation failed, and the original configuration could not be restored: $dnf_config"
+    die "DNF rejected the systemd 257 hold configuration; the original configuration was restored"
   fi
 }
 
@@ -961,7 +961,7 @@ configure_pacman_holds() {
     done
   else
     grep -q '^\[options\][[:space:]]*$' /etc/pacman.conf ||
-      die "/etc/pacman.conf 缺少 [options] 段，无法锁定 257 包族"
+      die "/etc/pacman.conf is missing the [options] section, cannot hold the 257 package family"
     sed -i "/^\[options\][[:space:]]*$/a IgnorePkg = $packages_line" /etc/pacman.conf
   fi
 }
@@ -1008,29 +1008,29 @@ main() {
 
   require_root
   CURRENT_VERSION_LINE="$(systemd_version_line || true)"
-  [[ -n "$CURRENT_VERSION_LINE" ]] || die "无法检测当前 systemd 版本"
+  [[ -n "$CURRENT_VERSION_LINE" ]] || die "unable to detect the current systemd version"
   current_major="$(systemd_major_from_line "$CURRENT_VERSION_LINE")"
   [[ "$current_major" =~ ^[0-9]+$ ]] ||
-    die "无法从版本信息中提取主版本：$CURRENT_VERSION_LINE"
+    die "unable to extract the major version from the version info: $CURRENT_VERSION_LINE"
   readonly PREVIOUS_VERSION_LINE="$CURRENT_VERSION_LINE"
 
   log "current version: $CURRENT_VERSION_LINE"
   if (( current_major < SYSTEMD257_TARGET_MAJOR )); then
-    log "systemd $current_major 低于 257，不执行安装"
+    log "systemd $current_major is lower than 257, skipping installation"
     return 0
   fi
 
   if ! detect_target; then
     if (( current_major == SYSTEMD257_TARGET_MAJOR )); then
-      log "当前发行版已经运行 systemd 257，不需要预构建包族"
+      log "the current distribution already runs systemd 257, no prebuilt package family needed"
       return 0
     fi
-    die "当前发行版没有预构建 257 包族；仅支持 Ubuntu 26.04、Fedora 43/44 和 Arch Linux ARM"
+    die "the current distribution has no prebuilt 257 package family; only Ubuntu 26.04, Fedora 43/44 and Arch Linux ARM are supported"
   fi
 
   verify_target_tools_and_architecture
   if (( current_major == SYSTEMD257_TARGET_MAJOR )) && ! has_mismatched_family_packages; then
-    log "运行时和已安装 systemd 包族均为 257，不需要重复安装"
+    log "the runtime and the installed systemd package family are both 257, no need to reinstall"
     return 0
   fi
 

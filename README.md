@@ -1,41 +1,75 @@
-中文 | [English](README_english.md)
+# Droidspaces RootFS Builder — GNOME fork
 
-# Droidspaces RootFS 自动构建
+Build ARM64 Linux RootFS images for **Droidspaces** on Android with GitHub Actions.
+This fork is set up to produce **GNOME desktop** images on **Debian 13** and **Ubuntu 26.04**,
+running on the **Anland Wayland** backend with Snapdragon GPU acceleration.
 
-通过 GitHub Actions 为 Android 上的 Droidspaces 构建 Debian、Ubuntu、Fedora 或 Arch Linux ARM64 RootFS。可选择 KDE、KDE Mobile、GNOME、Anland Next、Arch Niri 或纯命令行环境，再下载 `.tar.xz` 导入 Droidspaces。
+![Debian 13 KDE running with Anland Wayland](docs/images/debian-kde-wayland.jpg)
 
-![Debian 13 KDE 桌面运行于 Anland Wayland](docs/images/debian-kde-wayland.jpg)
+**Quick start:** open `Actions` → run **Build and Release Droidspaces RootFS** →
+leave the defaults → download the RootFS from `Releases`.
 
-**快速开始：** Fork 仓库 → 打开 `Actions` → 运行“编译并发布 Droidspaces RootFS” → 从 `Releases` 下载 RootFS。
+## Defaults in this fork
 
-## 项目内容
+| Input | Default | Meaning |
+| --- | --- | --- |
+| `build_target` | `gnome-debian-ubuntu` | Builds **both** `Debian-13` and `Ubuntu-26` in one run |
+| `desktop` | `GNOME` | GNOME desktop |
+| `display_backend` | `anland-wayland` | Hardware-accelerated Wayland via Anland |
+| `enable_mesa` | `true` | Snapdragon / Adreno GPU driver support |
+| `enable_yj` | `true` | NAT and Android hardware recognition |
+| `nosnap` | `true` | Removes Snap from Ubuntu images |
+| `enable_zip` | `true` | Compression tools |
+| `enable_zh_tz` | `false` | English locale, no timezone change |
 
-- 七种发行版构建目标，支持 X11 与 Anland Wayland（依桌面和发行版而定）。
-- 可选中文环境、Fcitx5、Snapdragon GPU 支持、音频转发、开发工具和 Docker。
-- RootFS 自动发布到 GitHub Releases；容器内提供桌面会话、USB 管理与维护工具。
+Pressing **Run workflow** with the defaults produces two `.tar.xz` archives:
 
-## 文档
+- `Debian-13-GNOME-rootfs` — GNOME 48 (mutter 48.7)
+- `Ubuntu-26-GNOME-rootfs` — GNOME 50 (mutter 50.1)
 
-- [文档目录与桌面截图](docs/zh/README.md)
-- [从 Actions 构建并导入 Droidspaces](docs/zh/快速开始.md)
-- [发行版兼容性与构建选项](docs/zh/构建选项.md)
-- [桌面启动与 Anland Wayland 配置](docs/zh/桌面与Anland.md)
-- [TUI、USB、固件与本地构建](docs/zh/进阶使用.md)
-- [脚本维护说明](scripts/README.md)
+## What it provides
 
-## 支持范围
+- **GNOME on Anland Wayland**, hardware accelerated through the Snapdragon GPU.
+- **Droidspaces goodies** kept intact: Termux:X11 support, Adreno Mesa drivers,
+  PulseAudio/PipeWire audio, USB Manager, firmware downloader, Docker, binfmt,
+  ARM64 Chrome, and the in-container TUI.
+- Automatic GitHub Release publishing with a draft-then-publish flow.
+- Desktop session auto-start via `desktop-session.service`.
 
-构建目标：`Debian-13`、`Ubuntu-24`、`Ubuntu-25`、`Ubuntu-26`、`Fedora-43`、`Fedora-44`、`Arch`。Niri 目前只在 Arch Linux ARM 上提供。桌面及显示后端的完整兼容矩阵见[构建选项](docs/zh/构建选项.md)。
+## GNOME support matrix
 
-## 致谢
+GNOME requires the Anland Wayland backend (GNOME 49 and later dropped the X11 session
+upstream). The prebuilt Anland Mutter packages exist for these targets only:
 
-- [Droidspaces-OSS](https://github.com/ravindu644/Droidspaces-OSS/)：提供项目运行环境基础。
-- [mesa-for-android-container](https://github.com/lfdevs/mesa-for-android-container)：提供 Snapdragon GPU 驱动支持。
-- [droidspaces-media-decode](https://github.com/Re-s/droidspaces-media-decode)：提供 Android MediaCodec 容器硬件解码支持。
-- [Anland](https://github.com/superturtlee/anland)：提供 Wayland 显示后端及相关工作。
-- [Droidspaces USB Manager](https://github.com/Yizhou147/Droidspaces-USB-Manager)：提供 USB 存储和 ADB 设备管理工具。
-- [ObsidianArc](https://github.com/OnyxAxisOwO/ObsidianArc)：自托管多模型聊天网关，感谢他们提供公益 AI 服务。
+| Target | GNOME | Notes |
+| --- | --- | --- |
+| `Debian-13` | ✅ | GNOME 48 / mutter 48.7 |
+| `Ubuntu-26` | ✅ | GNOME 50 / mutter 50.1 |
+| `Arch` | ✅ | GNOME 50 / mutter 50.5 |
+| `Fedora-43`, `Fedora-44` | ❌ | No Fedora Mutter build published; KDE and Anland Next work |
+| `Ubuntu-24`, `Ubuntu-25` | ❌ | X11 only, no Anland backend |
+
+## Documentation
+
+- [Documentation index and desktop screenshots](docs/en/README.md)
+- [Build with Actions and import into Droidspaces](docs/en/quick-start.md)
+- [Supported distributions and build options](docs/en/build-options.md)
+- [Desktop startup and Anland Wayland setup](docs/en/desktop-and-anland.md)
+- [TUI, USB, firmware, and local builds](docs/en/advanced-usage.md)
+- [Script maintenance guide](scripts/README.md)
+
+## Acknowledgements
+
+Forked from [Goldzxcbug/Droidspaces-rootfs-Desktop-builder](https://github.com/Goldzxcbug/Droidspaces-rootfs-Desktop-builder)
+(MIT). All credit for the build system, desktop profiles and Anland packaging goes to the original author.
+
+- [Droidspaces-OSS](https://github.com/ravindu644/Droidspaces-OSS/): runtime foundation.
+- [mesa-for-android-container](https://github.com/lfdevs/mesa-for-android-container): Snapdragon GPU driver support.
+- [droidspaces-media-decode](https://github.com/Re-s/droidspaces-media-decode): Android MediaCodec hardware decoding for containers.
+- [Anland](https://github.com/superturtlee/anland): Wayland display backend and related work.
+- [Droidspaces USB Manager](https://github.com/Yizhou147/Droidspaces-USB-Manager): USB storage and ADB device management.
+- [ObsidianArc](https://github.com/OnyxAxisOwO/ObsidianArc): self-hosted multi-model chat gateway.
 
 ---
 
-[所有桌面截图](docs/zh/README.md#桌面截图) · [English README](README_english.md)
+[All desktop screenshots](docs/en/README.md#screenshots)

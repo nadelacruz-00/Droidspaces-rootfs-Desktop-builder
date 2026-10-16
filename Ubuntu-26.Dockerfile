@@ -23,7 +23,7 @@ ARG ANLAND_PACKAGE_REVISION=unknown
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 启用 APT 并行连接、HTTP(S) pipeline 和下载重试
+# Enable parallel APT connections, HTTP(S) pipeline and download retries
 RUN printf '%s\n' \
     'Acquire::Queue-Mode "host";' \
     'Acquire::http::Pipeline-Depth "10";' \
@@ -31,15 +31,15 @@ RUN printf '%s\n' \
     'Acquire::Retries "3";' \
     > /etc/apt/apt.conf.d/99parallel-downloads
 
-# 优先复制自定义脚本
+# Copy the custom scripts first
 COPY scripts/download-firmware /usr/local/bin/
 COPY scripts/nosnap.sh /usr/local/sbin/nosnap
 COPY scripts/systemd257.sh /usr/local/sbin/systemd257
 
-# 将自定义的 bashrc 脚本复制到根文件系统的 profile 目录
+# Copy the custom bashrc script into the root filesystem's profile directory
 COPY scripts/bashrc.sh /etc/profile.d/ds-aliases.sh
 
-# 通用 Droidspaces USB Manager 安装器
+# Generic Droidspaces USB Manager installer
 COPY scripts/install-usb-manager.sh /usr/local/sbin/install-droidspaces-usb-manager
 COPY scripts/tui/install-anland-kde.sh /usr/local/sbin/install-anland-kde
 COPY scripts/tui/install-anland-gnome.sh /usr/local/sbin/install-anland-gnome
@@ -60,7 +60,7 @@ RUN if [ "$DISPLAY_BACKEND" = "anland-wayland" ]; then \
     fi && \
     rm -f /tmp/Anland-Audio.conf
 
-# 赋予相关脚本可执行权限
+# Make the relevant scripts executable
 RUN chmod +x /usr/local/bin/download-firmware /usr/local/sbin/nosnap /etc/profile.d/ds-aliases.sh /usr/local/sbin/install-anland-* /usr/local/sbin/install-mesa /usr/local/sbin/install-hangover-wine /usr/local/sbin/install-winefonts /usr/local/sbin/install-desktop /usr/local/sbin/configure-desktop /usr/local/sbin/configure-chrome /usr/local/bin/droidspaces-tui /usr/local/bin/start-desktop-session /usr/local/lib/droidspaces/desktops/*.sh && \
     ln -s droidspaces-tui /usr/local/bin/dstui && \
     ln -s droidspaces-tui /usr/local/bin/ds-tui
@@ -70,53 +70,53 @@ RUN sed -i 's/Components: main/Components: main restricted universe multiverse/g
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates curl wget && \
     if [ "$ENABLE_nosnap_ARG" = "true" ]; then \
-        echo "--> [开启] nosnap: 正在预配置并移除 Ubuntu Snap..." && \
+        echo "--> [enabled] nosnap: pre-configuring and removing Ubuntu Snap..." && \
         bash /usr/local/sbin/nosnap; \
     else \
-        echo "--> [跳过] 未开启 nosnap"; \
+        echo "--> [skipped] nosnap is not enabled"; \
     fi && \
     apt-get update && \
     apt-get upgrade -y
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    # 核心工具组件
+    # Core utility components
     bash jq dialog coreutils file findutils grep sed gawk curl wget ca-certificates locales bash-completion udev dbus systemd-sysv systemd-resolved fastfetch \
-    # 用户请求的基础开发/编辑工具
+    # Basic development/editing tools requested by the user
     git nano sudo \
-    # 网络与 SSH 工具
+    # Networking and SSH tools
     openssh-server net-tools iptables iputils-ping iproute2 dnsutils \
-    # 用于系统监控的 procps 进程工具
+    # procps process tools for system monitoring
     procps \
-    # 核心内核模块支持
+    # Core kernel module support
     kmod tzdata tar && \
     /usr/local/sbin/install-desktop "$DESKTOP" && \
-    ############################################## Anland Wayland 支持 ################################################
+    ############################################## Anland Wayland support ################################################
     if [ "$DISPLAY_BACKEND" = "anland-wayland" ]; then \
-        echo "--> [开启] 正在安装 $DESKTOP 的 Anland 包 (${ANLAND_PACKAGE_REVISION})..." && \
+        echo "--> [enabled] Installing the Anland packages for $DESKTOP (${ANLAND_PACKAGE_REVISION})..." && \
         ANLAND_RELEASE_REPOSITORY="$ANLAND_RELEASE_REPOSITORY" \
         /usr/local/sbin/install-anland-desktop "$DESKTOP" --1 && \
-        echo "--> [开启] $DESKTOP 的 Anland 支持已安装"; \
+        echo "--> [enabled] Anland support for $DESKTOP installed"; \
     fi && \
     ######################################################################################################
-    #输入法 fcitx5 (可选)
+    #Input method fcitx5 (optional)
     if [ "$ENABLE_srf_ARG" = "true" ]; then \
         apt-get install -y fcitx5; \
     fi && \
     if [ "$ENABLE_srf_ARG" = "true" ] && [ "$ENABLE_zh_tz_ARG" = "true" ]; then \
         apt-get install -y fcitx5-chinese-addons; \
     fi && \
-    ## 开发工具集成 (可选)
+    ## Development toolchain (optional)
     if [ "$ENABLE_kfgj_ARG" = "true" ]; then \
         apt-get install -y --no-install-recommends \
         build-essential gcc g++ make cmake autoconf automake libtool pkg-config clang llvm python3 python3-pip python3-dev python3-venv python-is-python3; \
     fi && \
-    ## 压缩工具扩展 (可选)
+    ## Additional compression tools (optional)
     if [ "$ENABLE_zip_ARG" = "true" ]; then \
         apt-get install -y --no-install-recommends \
         zip unzip p7zip-full bzip2 xz-utils tar gzip; \
     fi && \
-    ## docker (可选)
+    ## docker (optional)
     if [ "$ENABLE_docker_ARG" = "true" ]; then \
         apt-get install -y --no-install-recommends \
         docker.io docker-compose-v2; \
@@ -125,7 +125,7 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# 强制配置使用 iptables-legacy
+# Force the configuration to use iptables-legacy
 RUN update-alternatives --set iptables /usr/sbin/iptables-legacy && \
     update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
 
@@ -145,17 +145,17 @@ RUN sed -i '/en_US.UTF-8/s/^# //' /etc/locale.gen && \
     mkdir -p /var/run/sshd && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
-    # Ubuntu 默认用户是 ubuntu，删除它避免冲突
+    # Ubuntu's default user is ubuntu; delete it to avoid conflicts
     (deluser --remove-home ubuntu || true) && \
-    # 创建自定义用户并直接加入 shadow 组，确保锁屏验证权限
+    # Create the custom user and add it directly to the shadow group to ensure lock screen authentication permissions
     useradd -m -s /bin/bash -G shadow ${USERNAME} && echo "${USERNAME}:1234" | chpasswd && \
     systemctl enable ssh
 
-# 为所有 Ubuntu RootFS 安装 Droidspaces USB Manager
+# Install the Droidspaces USB Manager for all Ubuntu RootFS
 RUN /usr/local/sbin/install-droidspaces-usb-manager --user "${USERNAME}"
 
 
-# 初始化环境变量文件；桌面专属变量由对应 profile 管理。
+# Initialize the environment variable file; desktop-specific variables are managed by the corresponding profile.
 RUN : > /etc/environment
 
 RUN if [ "$ENABLE_mesa_ARG" = "true" ] && [ "$DISPLAY_BACKEND" = "anland-wayland" ]; then \
@@ -164,25 +164,25 @@ RUN if [ "$ENABLE_mesa_ARG" = "true" ] && [ "$DISPLAY_BACKEND" = "anland-wayland
         echo "FD_FORCE_KGSL=1" >> /etc/environment; \
     fi
 
-# 修复骁龙8 Gen 2 设备在 Wayland 下的花屏问题
+# Fix the screen corruption on Snapdragon 8 Gen 2 devices under Wayland
 RUN if [ "$ENABLE_8gen2_wayland_ARG" = "true" ]; then \
         echo "FD_DEV_FEATURES=enable_tp_ubwc_flag_hint=1" >> /etc/environment; \
     fi
 
-# 音频选择
+# Audio selection
 RUN if [ "$PulseAudio" = "socket" ]; then \
         echo "PULSE_SERVER=unix:/tmp/.pulse-socket" >> /etc/environment; \
     elif [ "$PulseAudio" = "tcp" ]; then \
         echo "PULSE_SERVER=tcp:127.0.0.1:4713" >> /etc/environment; \
     fi
-# 修复anland 音频堵塞
+# Fix anland audio blockage
 # RUN if [ "$DISPLAY_BACKEND" = "anland-wayland" ]; then \
 #        mkdir -p /home/${USERNAME}/.config && \
 #       echo -e "\n[Sounds]\nEnable=false" >> /home/${USERNAME}/.config/kdeglobals ; \
 #     fi
 
 
-# 输入法与桌面会话配置
+# Input method and desktop session configuration
 COPY scripts/start/ /tmp/droidspaces-start/
 RUN <<'EOF_RUN'
     if [ "$ENABLE_srf_ARG" = "true" ]; then
@@ -220,16 +220,16 @@ EOF
     rm -rf /tmp/droidspaces-start
 EOF_RUN
 
-# Mesa 驱动适配
+# Mesa driver adaptation
 RUN if [ "$ENABLE_mesa_ARG" = "true" ]; then \
         /usr/local/sbin/install-mesa --1; \
     else \
-        echo "--> [跳过] 未开启 Mesa 驱动安装"; \
+        echo "--> [skipped] Mesa driver installation is not enabled"; \
     fi
 
-# 安装并配置原生 ARM64 Google Chrome。
+# Install and configure native ARM64 Google Chrome.
 RUN /usr/local/sbin/configure-chrome "$DESKTOP" "$DISPLAY_BACKEND"
-# 修复容器内的 DHCP 网络服务配置
+# Fix the DHCP network service configuration inside the container
 RUN mkdir -p /etc/systemd/network && \
     cat <<'EOF' > /etc/systemd/network/10-eth-dhcp.network
 [Match]
@@ -245,9 +245,9 @@ UseDomains=yes
 RouteMetric=100
 EOF
 
-# 应用 Android 运行环境兼容性修复（重点针对 Systemd 和 Udev）
+# Apply Android runtime compatibility fixes (mainly for Systemd and Udev)
 RUN <<'EOF_RUN'
-# --- 1. 常规兼容性修复 ---
+# --- 1. General compatibility fixes ---
 grep -q '^aid_inet:' /etc/group     || echo 'aid_inet:x:3003:'    >> /etc/group
 grep -q '^aid_net_raw:' /etc/group || echo 'aid_net_raw:x:3004:' >> /etc/group
 grep -q '^aid_net_admin:' /etc/group || echo 'aid_net_admin:x:3005:' >> /etc/group
@@ -264,7 +264,7 @@ if [ -f /etc/adduser.conf ]; then
     echo 'EXTRA_GROUPS="aid_inet aid_net_raw input video tty"' >> /etc/adduser.conf
 fi
 
-# --- 2. 针对 Systemd 的特定修复 ---
+# --- 2. Systemd-specific fixes ---
 ln -sf /dev/null /etc/systemd/system/systemd-networkd-wait-online.service
 ln -sf /dev/null /etc/systemd/system/systemd-journald-audit.socket
 
@@ -384,14 +384,14 @@ RUN if [ "$ENABLE_binfmt_ARG" = "true" ]; then \
         rm -f /usr/local/bin/qemu-binfmt-register.sh /etc/systemd/system/qemu-binfmt-register.service; \
     fi
 
-# 可选：为 Ubuntu 26.04 的旧 Android 内核运行环境构建 systemd 257。
+# Optional: build systemd 257 for Ubuntu 26.04's older Android kernel runtime.
 RUN if [ "$ENABLE_systemd257_ARG" = "true" ]; then \
         bash /usr/local/sbin/systemd257; \
     else \
-        echo "--> [跳过] 未启用 systemd 257 旧内核兼容"; \
+        echo "--> [skipped] systemd 257 legacy kernel compatibility is not enabled"; \
     fi
 
-# 打包前删除仅用于构建的一次性脚本；TUI 和运行时脚本保留。
+# Remove the one-off build-only scripts before packaging; the TUI and runtime scripts are kept.
 RUN rm -f \
         /usr/local/sbin/configure-chrome \
         /usr/local/sbin/configure-desktop \

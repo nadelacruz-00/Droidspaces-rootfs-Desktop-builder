@@ -27,7 +27,7 @@ configure_environment() {
     )
 
     [[ "$backend" == anland-wayland ]] || {
-        echo "Niri 显示后端无效：$backend" >&2
+        echo "Invalid Niri display backend: $backend" >&2
         return 1
     }
     touch "$environment_file"
@@ -51,12 +51,12 @@ install_arch() {
 install_profile() {
     case "$ID" in
         arch|archarm|archlinux) install_arch ;;
-        *) echo "Niri 不支持当前发行版：$ID $VERSION_ID" >&2; return 1 ;;
+        *) echo "Niri does not support the current distribution: $ID $VERSION_ID" >&2; return 1 ;;
     esac
 }
 
 case "${1:-install}" in
     install) install_profile ;;
     configure-environment) configure_environment "${2:-}" ;;
-    *) echo "Niri profile 操作无效：$1" >&2; exit 1 ;;
+    *) echo "Invalid Niri profile action: $1" >&2; exit 1 ;;
 esac

@@ -1,5 +1,5 @@
 [Unit]
-Description=注册 QEMU binfmt_misc 处理程序
+Description=Register the QEMU binfmt_misc handlers
 DefaultDependencies=no
 After=local-fs.target
 Before=sysinit.target proc-sys-fs-binfmt_misc.automount

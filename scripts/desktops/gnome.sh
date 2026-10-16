@@ -23,7 +23,7 @@ configure_environment() {
     )
 
     [[ "$backend" == anland-wayland ]] || {
-        echo "GNOME 显示后端无效：$backend" >&2
+        echo "Invalid GNOME display backend: $backend" >&2
         return 1
     }
 
@@ -62,7 +62,7 @@ install_apt() {
             )
             ;;
         *)
-            echo "GNOME 不支持当前系统：$ID $VERSION_ID" >&2
+            echo "GNOME does not support this system: $ID $VERSION_ID" >&2
             return 1
             ;;
     esac
@@ -87,7 +87,7 @@ install_profile() {
     case "$ID" in
         debian|ubuntu) install_apt ;;
         arch|archarm|archlinux) install_arch ;;
-        *) echo "GNOME 不支持当前发行版：$ID" >&2; return 1 ;;
+        *) echo "GNOME does not support this distribution: $ID" >&2; return 1 ;;
     esac
 }
 
@@ -95,7 +95,7 @@ case "${1:-install}" in
     install) install_profile ;;
     configure-environment) configure_environment "${2:-}" ;;
     *)
-        echo "GNOME profile 操作无效：$1" >&2
+        echo "Invalid GNOME profile operation: $1" >&2
         exit 1
         ;;
 esac

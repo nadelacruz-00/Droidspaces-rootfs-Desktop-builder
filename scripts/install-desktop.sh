@@ -9,35 +9,35 @@ case "${ENABLE_systemd257_ARG:-false}" in
         case "$desktop" in
             none|kde) ;;
             *)
-                echo "systemd 257 构建只支持 none 和普通 KDE，拒绝安装：$desktop" >&2
+                echo "systemd 257 builds only support none and plain KDE; refusing to install: $desktop" >&2
                 exit 1
                 ;;
         esac
         ;;
     false) ;;
     *)
-        echo "ENABLE_systemd257_ARG 只支持 true 或 false。" >&2
+        echo "ENABLE_systemd257_ARG only supports true or false." >&2
         exit 1
         ;;
 esac
 
 case "$desktop" in
     none)
-        echo "--> 桌面配置：none"
+        echo "--> Desktop profile: none"
         exit 0
         ;;
 esac
 
 if [[ ! "$desktop" =~ ^[a-z][a-z0-9-]*$ ]]; then
-    echo "不支持的桌面配置：$desktop" >&2
+    echo "Unsupported desktop profile: $desktop" >&2
     exit 1
 fi
 
 profile="$profile_dir/$desktop.sh"
 if [[ ! -x "$profile" ]]; then
-    echo "桌面配置脚本不存在或不可执行：$profile" >&2
+    echo "Desktop profile script is missing or not executable: $profile" >&2
     exit 1
 fi
 
-echo "--> 正在安装桌面配置：$desktop"
+echo "--> Installing desktop profile: $desktop"
 exec "$profile"

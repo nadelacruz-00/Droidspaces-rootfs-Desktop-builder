@@ -1,5 +1,5 @@
 [Unit]
-Description=启动 Droidspaces 桌面会话
+Description=Start the Droidspaces desktop session
 After=network.target display-manager.service
 StartLimitIntervalSec=60
 StartLimitBurst=5

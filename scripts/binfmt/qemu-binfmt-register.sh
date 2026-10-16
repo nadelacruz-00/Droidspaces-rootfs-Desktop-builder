@@ -5,19 +5,19 @@ BINFMT_MISC="/proc/sys/fs/binfmt_misc"
 
 log() { echo "qemu-binfmt: $*"; }
 
-# 检查内核支持
+# Check for kernel support
 if ! grep -q binfmt_misc /proc/filesystems 2>/dev/null; then
-    log "内核不支持 binfmt_misc，跳过"
+    log "kernel does not support binfmt_misc, skipping"
     exit 0
 fi
 
-# 必要时挂载
+# Mount if necessary
 if ! grep -q "$BINFMT_MISC" /proc/mounts; then
     if ! mount -t binfmt_misc binfmt_misc "$BINFMT_MISC"; then
-        log "挂载 binfmt_misc 失败，跳过"
+        log "failed to mount binfmt_misc, skipping"
         exit 0
     fi
 fi
 
-# 处理完成
+# Done
 exit 0

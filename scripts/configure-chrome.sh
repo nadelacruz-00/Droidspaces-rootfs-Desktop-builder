@@ -9,14 +9,14 @@ wrapper_dir="${rootfs}/usr/local/bin"
 wrapper="${wrapper_dir}/google-chrome"
 
 [[ -n "$desktop" ]] || {
-    echo "必须指定桌面配置" >&2
+    echo "A desktop profile must be specified" >&2
     exit 1
 }
 
 case "$display_backend" in
     x11|anland-wayland) ;;
     *)
-        echo "无效的 Chrome 显示后端：$display_backend" >&2
+        echo "Invalid Chrome display backend: $display_backend" >&2
         exit 1
         ;;
 esac
@@ -71,7 +71,7 @@ install_arch_chrome() {
         /tmp/chrome-build/google-chrome/.SRCINFO | sed 's/[<>=].*$//' | sort -u)"
     [ -n "$CHROME_DEPENDENCIES" ]
     if printf '%s\n' "$CHROME_DEPENDENCIES" | grep -Eqv '^[A-Za-z0-9@._+][A-Za-z0-9@._+:-]*$'; then
-        echo "AUR 配方包含无效的 Chrome 依赖" >&2
+        echo "The AUR recipe contains invalid Chrome dependencies" >&2
         exit 1
     fi
     pacman -S --noconfirm --needed --asdeps $CHROME_DEPENDENCIES
@@ -98,7 +98,7 @@ install_arch_chrome() {
 }
 
 install_chrome() {
-    # ROOTFS_DIR 用于隔离测试；实际 RootFS 构建时为空。
+    # ROOTFS_DIR isolates test runs; it is empty during a real RootFS build.
     [[ -n "$rootfs" ]] && return 0
 
     # shellcheck disable=SC1091
@@ -108,7 +108,7 @@ install_chrome() {
         fedora) install_fedora_chrome ;;
         arch|archarm|archlinux) install_arch_chrome ;;
         *)
-            echo "不支持的 Chrome 发行版：${ID:-unknown}" >&2
+            echo "Unsupported distribution for Chrome: ${ID:-unknown}" >&2
             exit 1
             ;;
     esac
@@ -116,7 +116,7 @@ install_chrome() {
 
 install_chrome
 [[ -x "$chrome_binary" ]] || {
-    echo "Chrome 安装完成后未找到：$chrome_binary" >&2
+    echo "Chrome was not found after installation: $chrome_binary" >&2
     exit 1
 }
 

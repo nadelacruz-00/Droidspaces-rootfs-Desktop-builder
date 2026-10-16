@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Mesa 源仓库：https://github.com/lfdevs/mesa-for-android-container
-# 媒体解码源仓库：https://github.com/Re-s/droidspaces-media-decode
-# 分发地址：https://github.com/Goldzxcbug/droidspaces-package/releases/tag/mesa-for-android-container
-# 安装面向 Android 容器的 ARM64 Mesa 构建。
-# 同时安装 droidspaces-media-decode 发布的 MediaCodec VA-API 驱动。
-# 根据 /etc/os-release 选择 Mesa 归档格式和包管理器。
+# Mesa source repository: https://github.com/lfdevs/mesa-for-android-container
+# Media decode source repository: https://github.com/Re-s/droidspaces-media-decode
+# Distribution URL: https://github.com/Goldzxcbug/droidspaces-package/releases/tag/mesa-for-android-container
+# Installs ARM64 Mesa builds for Android containers.
+# Also installs the MediaCodec VA-API driver published by droidspaces-media-decode.
+# Selects the Mesa archive format and package manager based on /etc/os-release.
 readonly RELEASE_REPOSITORY="Goldzxcbug/droidspaces-package"
 readonly CNB_RELEASE_REPOSITORY="goldzxcbug/droidspaces-package"
 readonly DISTRIBUTION_TAG="mesa-for-android-container"
@@ -34,7 +34,6 @@ readonly MAX_MEDIA_DRIVER_BYTES=$((16 * 1024 * 1024))
 readonly MAX_MANIFEST_BYTES=$((1024 * 1024))
 readonly MAX_CHECKSUMS_BYTES=$((1024 * 1024))
 
-UI_LANG="en"
 TARGET=""
 PACKAGE_MANAGER=""
 ASSET_PATTERN=""
@@ -66,35 +65,23 @@ MEDIA_DRIVER_INSTALL_PATH=""
 MESA_PACKAGE_NAMES=()
 UNINSTALL=false
 
-detect_language() {
-    local locale_name="${LC_ALL:-${LC_MESSAGES:-${LANG:-C}}}"
-    locale_name="${locale_name,,}"
-    if [[ "$locale_name" == zh* ]]; then
-        UI_LANG="zh"
-    fi
-}
-
 msg() {
-    if [[ "$UI_LANG" == "zh" ]]; then
-        printf '%s' "$1"
-    else
-        printf '%s' "$2"
-    fi
+    printf '%s' "$1"
 }
 
 log() {
-    printf '[install-mesa] %s\n' "$(msg "$1" "$2")"
+    printf '[install-mesa] %s\n' "$(msg "$1")"
 }
 
 record_component_version() {
     local version="$1" state_file="$COMPONENT_STATE_DIR/mesa.version" temporary_file
     [[ "$version" =~ ^[0-9A-Za-z][0-9A-Za-z.+:~_-]{0,63}$ ]] || return 0
     if ! mkdir -p -- "$COMPONENT_STATE_DIR"; then
-        log "无法记录已安装的 Mesa 版本。" "Could not record the installed Mesa version."
+        log "Could not record the installed Mesa version."
         return 0
     fi
     temporary_file="$(mktemp "$state_file.tmp.XXXXXXXX")" || {
-        log "无法记录已安装的 Mesa 版本。" "Could not record the installed Mesa version."
+        log "Could not record the installed Mesa version."
         return 0
     }
     if printf '%s\n' "$version" > "$temporary_file" && \
@@ -102,7 +89,7 @@ record_component_version() {
         return 0
     fi
     rm -f -- "$temporary_file" || true
-    log "无法记录已安装的 Mesa 版本。" "Could not record the installed Mesa version."
+    log "Could not record the installed Mesa version."
     return 0
 }
 
@@ -123,21 +110,21 @@ mesa_archive_version() {
 
 die() {
     printf '[install-mesa] %s: %s\n' \
-        "$(msg '错误' 'Error')" "$(msg "$1" "$2")" >&2
+        "$(msg 'Error')" "$(msg "$1")" >&2
     exit 1
 }
 
 usage() {
     cat <<EOF
-$(msg '用法' 'Usage'): $0
+$(msg 'Usage'): $0
 
-  -1, --1       $(msg '使用 GitHub 并跳过测速。' 'Use GitHub and skip latency checks.')
-  -2, --2       $(msg '使用 gh-proxy.com 并跳过测速。' 'Use gh-proxy.com and skip latency checks.')
-  -3, --3       $(msg '使用 CNB 国内镜像并跳过测速。' 'Use the CNB mirror and skip latency checks.')
-  --uninstall   $(msg '卸载自定义驱动并恢复发行版 Mesa' 'Uninstall custom drivers and restore distribution Mesa')
-  -h, --help    $(msg '显示此帮助。' 'Show this help.')
+  -1, --1       $(msg 'Use GitHub and skip latency checks.')
+  -2, --2       $(msg 'Use gh-proxy.com and skip latency checks.')
+  -3, --3       $(msg 'Use the CNB mirror and skip latency checks.')
+  --uninstall   $(msg 'Uninstall custom drivers and restore distribution Mesa')
+  -h, --help    $(msg 'Show this help.')
 
-$(msg '未指定下载源时，将测试三个源并提示选择。' 'Without a source option, all three sources are probed before prompting.')
+$(msg 'Without a source option, all three sources are probed before prompting.')
 EOF
 }
 
@@ -145,7 +132,7 @@ set_download_source_argument() {
     local source="$1"
 
     if [[ -n "$DOWNLOAD_SOURCE" && "$DOWNLOAD_SOURCE" != "$source" ]]; then
-        die "不能同时指定多个下载源。" "Conflicting download-source options were provided."
+        die "Conflicting download-source options were provided."
     fi
     DOWNLOAD_SOURCE="$source"
     SKIP_SOURCE_PROBE=true
@@ -173,7 +160,7 @@ parse_arguments() {
                 exit 0
                 ;;
             *)
-                die "不支持的参数：${argument}。可用参数为 -1/--1、-2/--2、-3/--3。" \
+                die \
                     "Unsupported argument: ${argument}. Valid arguments are -1/--1, -2/--2, and -3/--3."
                 ;;
         esac
@@ -184,14 +171,14 @@ uninstall_mesa_apt() {
     local package candidate backup=""
     local -a packages=(libegl-mesa0 libgbm1 libgl1-mesa-dri libglx-mesa0 mesa-libgallium mesa-vulkan-drivers)
     local -a package_specs=()
-    command -v apt-cache >/dev/null 2>&1 || die "未找到 apt-cache。" "apt-cache was not found."
-    command -v apt-get >/dev/null 2>&1 || die "未找到 apt-get。" "apt-get was not found."
+    command -v apt-cache >/dev/null 2>&1 || die "apt-cache was not found."
+    command -v apt-get >/dev/null 2>&1 || die "apt-get was not found."
     if [[ -e "$APT_HOLD_PREFERENCES" ]]; then
         [[ -f "$APT_HOLD_PREFERENCES" && ! -L "$APT_HOLD_PREFERENCES" ]] || \
-            die "Mesa 锁定配置路径异常。" "The Mesa hold configuration path is invalid."
+            die "The Mesa hold configuration path is invalid."
         grep -Fqx '# /etc/apt/preferences.d/hold-anland-package' "$APT_HOLD_PREFERENCES" && \
             grep -Fqx 'Pin-Priority: -1' "$APT_HOLD_PREFERENCES" || \
-            die "Mesa 锁定配置已被修改，拒绝自动删除。" \
+            die \
                 "The Mesa hold configuration was modified; refusing to remove it automatically."
         backup="$(mktemp -t install-mesa-apt-hold.XXXXXXXX)"
         cp -p -- "$APT_HOLD_PREFERENCES" "$backup"
@@ -206,14 +193,14 @@ uninstall_mesa_apt() {
         if [[ -z "$candidate" ]]; then
             [[ -z "$backup" ]] || install -m 0644 "$backup" "$APT_HOLD_PREFERENCES"
             rm -f -- "$backup"
-            die "找不到 $package 的官方候选版本。" "No distribution candidate was found for $package."
+            die "No distribution candidate was found for $package."
         fi
         package_specs+=("$package=$candidate")
     done
     if ! apt-get install -y --reinstall --allow-downgrades "${package_specs[@]}"; then
         [[ -z "$backup" ]] || install -m 0644 "$backup" "$APT_HOLD_PREFERENCES"
         rm -f -- "$backup"
-        die "恢复发行版 Mesa 失败。" "Failed to restore distribution Mesa packages."
+        die "Failed to restore distribution Mesa packages."
     fi
     rm -f -- "$backup"
 }
@@ -221,11 +208,11 @@ uninstall_mesa_apt() {
 uninstall_mesa_dnf() {
     local backup stripped package
     local -a packages=()
-    command -v dnf >/dev/null 2>&1 || die "未找到 dnf。" "dnf was not found."
-    command -v rpm >/dev/null 2>&1 || die "未找到 rpm。" "rpm was not found."
-    [[ -f "$DNF_CONFIG" ]] || die "找不到 DNF 配置。" "The DNF configuration was not found."
+    command -v dnf >/dev/null 2>&1 || die "dnf was not found."
+    command -v rpm >/dev/null 2>&1 || die "rpm was not found."
+    [[ -f "$DNF_CONFIG" ]] || die "The DNF configuration was not found."
     mapfile -t packages < <(rpm -qa --queryformat '%{NAME}\n' | awk '/^mesa/ { print }' | sort -u)
-    ((${#packages[@]} > 0)) || die "没有找到已安装的 Mesa 包。" "No installed Mesa packages were found."
+    ((${#packages[@]} > 0)) || die "No installed Mesa packages were found."
     backup="$(mktemp -t install-mesa-uninstall.XXXXXXXX)"
     stripped="$(mktemp -t install-mesa-uninstall.XXXXXXXX)"
     cp -p -- "$DNF_CONFIG" "$backup"
@@ -236,7 +223,7 @@ uninstall_mesa_dnf() {
         ! dnf distro-sync -y --exclude='systemd*' "${packages[@]}"; then
         install -m 0644 "$backup" "$DNF_CONFIG" || true
         rm -f -- "$backup" "$stripped"
-        die "恢复发行版 Mesa 失败。" "Failed to restore distribution Mesa packages."
+        die "Failed to restore distribution Mesa packages."
     fi
     rm -f -- "$backup" "$stripped"
 }
@@ -244,8 +231,8 @@ uninstall_mesa_dnf() {
 uninstall_mesa_pacman() {
     local backup stripped protected preserve_kde=false
     local -a packages=()
-    command -v pacman >/dev/null 2>&1 || die "未找到 pacman。" "pacman was not found."
-    [[ -f "$PACMAN_CONFIG" ]] || die "找不到 pacman.conf。" "pacman.conf was not found."
+    command -v pacman >/dev/null 2>&1 || die "pacman was not found."
+    [[ -f "$PACMAN_CONFIG" ]] || die "pacman.conf was not found."
     mapfile -t packages < <(awk -v begin="$PACMAN_MANAGED_BEGIN" -v end="$PACMAN_MANAGED_END" '
         $0 == begin { inside = 1; next }
         $0 == end { inside = 0; next }
@@ -269,7 +256,7 @@ uninstall_mesa_pacman() {
     if ! rewrite_without_managed_block \
         "$PACMAN_CONFIG" "$stripped" "$PACMAN_MANAGED_BEGIN" "$PACMAN_MANAGED_END"; then
         rm -f -- "$backup" "$stripped" "$protected"
-        die "无法移除 Mesa 锁定配置。" "Failed to remove the Mesa hold configuration."
+        die "Failed to remove the Mesa hold configuration."
     fi
     if [[ "$preserve_kde" == true ]] && \
         ! grep -Eq '^[[:space:]]*IgnorePkg[[:space:]]*=.*(^|[[:space:]])kwin([[:space:]]|$)' "$stripped"; then
@@ -282,7 +269,7 @@ uninstall_mesa_pacman() {
             END { if (!added) exit 1 }
         ' "$stripped" > "$protected" || {
             rm -f -- "$backup" "$stripped" "$protected"
-            die "无法保留 Anland KDE 锁定。" "Failed to preserve the Anland KDE hold."
+            die "Failed to preserve the Anland KDE hold."
         }
     else
         cp -- "$stripped" "$protected"
@@ -291,7 +278,7 @@ uninstall_mesa_pacman() {
         ! pacman -S --noconfirm "${packages[@]}"; then
         install -m 0644 "$backup" "$PACMAN_CONFIG" || true
         rm -f -- "$backup" "$stripped" "$protected"
-        die "恢复发行版 Mesa 失败。" "Failed to restore distribution Mesa packages."
+        die "Failed to restore distribution Mesa packages."
     fi
     rm -f -- "$backup" "$stripped" "$protected"
 }
@@ -304,7 +291,7 @@ uninstall_mesa() {
     esac
     rm -f -- "$MEDIA_DRIVER_INSTALL_PATH" "$COMPONENT_STATE_DIR/mesa.version"
     command -v ldconfig >/dev/null 2>&1 && ldconfig || true
-    log "自定义 Mesa/MediaCodec 驱动已卸载，发行版 Mesa 已恢复。" \
+    log \
         "Custom Mesa/MediaCodec drivers were uninstalled and distribution Mesa was restored."
 }
 
@@ -324,8 +311,8 @@ require_root() {
     fi
 
     command -v sudo >/dev/null 2>&1 || die \
-        "请使用 root 账户运行此脚本。" "Please run this script as root."
-    log "正在通过 sudo 重新运行安装程序..." "Restarting the installer with sudo..."
+        "Please run this script as root."
+    log "Restarting the installer with sudo..."
 
     local script_path="${BASH_SOURCE[0]}"
     if [[ "$script_path" != /* ]]; then
@@ -345,12 +332,12 @@ media_driver_install_dir_for_target() {
 
 detect_target() {
     [[ -r /etc/os-release ]] || die \
-        "无法读取 /etc/os-release。" "Unable to read /etc/os-release."
+        "Unable to read /etc/os-release."
 
     # shellcheck disable=SC1091
     source /etc/os-release
     [[ -n "${ID:-}" ]] || die \
-        "/etc/os-release 缺少 ID。" "/etc/os-release does not contain ID."
+        "/etc/os-release does not contain ID."
 
     local distro_id="${ID,,}"
     local version_id="${VERSION_ID:-}"
@@ -377,7 +364,7 @@ detect_target() {
                     ASSET_PATTERN='^mesa-for-android-container_[^/]+_debian_trixie_arm64\.tar\.gz$'
                     ;;
                 *)
-                    die "不支持当前系统 ${system_name}。仅支持 Debian 13。" \
+                    die \
                         "Unsupported system: ${system_name}. Only Debian 13 is supported."
                     ;;
             esac
@@ -403,7 +390,7 @@ detect_target() {
                     ASSET_PATTERN='^mesa-for-android-container_[^/]+_ubuntu_resolute_arm64\.tar\.gz$'
                     ;;
                 *)
-                    die "不支持当前系统 ${system_name}。仅支持 Ubuntu 24.04、25.10、26.04。" \
+                    die \
                         "Unsupported system: ${system_name}. Only Ubuntu 24.04, 25.10, and 26.04 are supported."
                     ;;
             esac
@@ -423,22 +410,21 @@ detect_target() {
                     ASSET_PATTERN='^mesa-for-android-container_[^/]+_fedora_44_arm64\.tar\.gz$'
                     ;;
                 *)
-                    die "不支持当前系统 ${system_name}。仅支持 Fedora 43/44。" \
+                    die \
                         "Unsupported system: ${system_name}. Only Fedora 43/44 are supported."
                     ;;
             esac
             ;;
         *)
-            die "不支持当前系统 ${system_name}。" "Unsupported system: ${system_name}."
+            die "Unsupported system: ${system_name}."
             ;;
     esac
 
     MEDIA_DRIVER_INSTALL_DIR="$(media_driver_install_dir_for_target "$distro_id")" || die \
-        "内部错误：无法确定 ${system_name} 的媒体解码驱动目录。" \
         "Internal error: could not determine the media decode driver directory for ${system_name}."
     MEDIA_DRIVER_INSTALL_PATH="${MEDIA_DRIVER_INSTALL_DIR}/${MEDIA_DRIVER_NAME}"
 
-    log "已识别系统: ${system_name} -> ${TARGET}" \
+    log \
         "Detected system: ${system_name} -> ${TARGET}"
 }
 
@@ -449,7 +435,7 @@ check_architecture() {
     case "$architecture" in
         aarch64|arm64) ;;
         *)
-            die "预编译 Mesa 包仅支持 ARM64/aarch64，当前架构为 ${architecture}。" \
+            die \
                 "The prebuilt Mesa packages support ARM64/aarch64 only; current architecture is ${architecture}."
             ;;
     esac
@@ -460,33 +446,32 @@ require_commands() {
 
     for command_name in awk cat chmod cp dirname grep install mktemp mv od rm sed sha256sum sort stat tar tr uname; do
         command -v "$command_name" >/dev/null 2>&1 || die \
-            "缺少运行安装器所需的命令：${command_name}。" \
             "The installer requires the missing command: ${command_name}."
     done
     if [[ "$DOWNLOAD_SOURCE" != "3" ]]; then
         command -v jq >/dev/null 2>&1 || die \
-            "未找到 jq，无法解析 GitHub Mesa Release。" "jq was not found; the GitHub Mesa Release cannot be parsed."
+            "jq was not found; the GitHub Mesa Release cannot be parsed."
     fi
 
     if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
-        die "未找到 curl 或 wget，无法下载 Mesa。" \
+        die \
             "Neither curl nor wget was found; Mesa cannot be downloaded."
     fi
 
     case "$PACKAGE_MANAGER" in
         apt)
             command -v ldconfig >/dev/null 2>&1 || die \
-                "未找到 ldconfig。" "ldconfig was not found."
+                "ldconfig was not found."
             ;;
         dnf)
             command -v ldconfig >/dev/null 2>&1 || die \
-                "未找到 ldconfig。" "ldconfig was not found."
+                "ldconfig was not found."
             ;;
         pacman)
             command -v pacman >/dev/null 2>&1 || die \
-                "未找到 pacman。" "pacman was not found."
+                "pacman was not found."
             [[ -r "$PACMAN_CONFIG" ]] || die \
-                "无法读取 ${PACMAN_CONFIG}。" "Unable to read ${PACMAN_CONFIG}."
+                "Unable to read ${PACMAN_CONFIG}."
             ;;
     esac
 }
@@ -517,9 +502,8 @@ download_file() {
 resolve_release_asset() {
     local metadata asset_json expected_download_url
 
-    log "正在读取 Mesa 滚动分发 Release..." "Reading the rolling Mesa distribution Release..."
+    log "Reading the rolling Mesa distribution Release..."
     metadata="$(download_stdout "$MESA_API_URL")" || die \
-        "无法获取 Mesa Release 信息，可能触发了 GitHub API 限制。" \
         "Unable to fetch Mesa Release metadata; the GitHub API may be rate-limited."
 
     asset_json="$(jq -ce --arg pattern "$ASSET_PATTERN" '
@@ -531,30 +515,28 @@ resolve_release_asset() {
         end
     ' <<< "$metadata" 2>/dev/null || true)"
     [[ -n "$asset_json" && "$asset_json" != "null" ]] || die \
-        "滚动分发 Release 没有 ${TARGET} 对应的 ARM64 Mesa 包。" \
         "The rolling distribution Release has no matching ARM64 Mesa package for ${TARGET}."
 
     RELEASE_TAG="$(jq -er '.tag_name | select(type == "string" and length > 0)' \
         <<< "$metadata" 2>/dev/null)" || die \
-        "Release 返回了无效的标签。" "The Release returned an invalid tag."
+        "The Release returned an invalid tag."
     [[ "$RELEASE_TAG" == "$DISTRIBUTION_TAG" ]] || die \
-        "Release 返回了无效的标签。" "The Release returned an invalid tag."
+        "The Release returned an invalid tag."
     ARCHIVE_NAME="$(jq -er '.name // empty' <<< "$asset_json" 2>/dev/null)" || die \
-        "Release 返回了无效的包名。" "The Release returned an invalid asset name."
+        "The Release returned an invalid asset name."
     OFFICIAL_DOWNLOAD_URL="$(jq -er '.browser_download_url // empty' \
         <<< "$asset_json" 2>/dev/null)" || die \
-        "Release 返回了无效的下载地址。" "The Release returned an invalid download URL."
+        "The Release returned an invalid download URL."
     OFFICIAL_ARCHIVE_DIGEST="$(jq -r '.digest // empty' \
         <<< "$asset_json" 2>/dev/null)" || die \
-        "Release 返回了无效的 SHA-256 校验值。" \
         "The Release returned an invalid SHA-256 digest."
 
     expected_download_url="${GITHUB_RELEASE_URL}/${RELEASE_REPOSITORY}/releases/download/${RELEASE_TAG}/${ARCHIVE_NAME}"
     [[ "$OFFICIAL_DOWNLOAD_URL" == "$expected_download_url" ]] || die \
-        "Release 返回了无效的下载地址。" "The Release returned an invalid download URL."
+        "The Release returned an invalid download URL."
     [[ "$ARCHIVE_NAME" =~ $ASSET_PATTERN ]] || die \
-        "Release 包名与目标发行版不匹配。" "The Release asset name does not match the target distribution."
-    log "已选择 Mesa 包: ${ARCHIVE_NAME}" "Selected Mesa asset: ${ARCHIVE_NAME}"
+        "The Release asset name does not match the target distribution."
+    log "Selected Mesa asset: ${ARCHIVE_NAME}"
 }
 
 cnb_manifest_asset_rows() {
@@ -600,17 +582,17 @@ resolve_cnb_distribution_manifest() {
 
     CNB_MANIFEST_FILE="$WORK_DIR/$DISTRIBUTION_MANIFEST_NAME"
     manifest_url="$(distribution_manifest_url_for_source 3)" || die \
-        "无法构造 CNB Mesa 清单地址。" "Could not build the CNB Mesa manifest URL."
-    log "正在从 CNB 读取 Mesa 分发清单..." "Reading the Mesa distribution manifest from CNB..."
+        "Could not build the CNB Mesa manifest URL."
+    log "Reading the Mesa distribution manifest from CNB..."
     download_file "$manifest_url" "$CNB_MANIFEST_FILE" || die \
-        "无法下载 CNB Mesa 分发清单。" "Could not download the CNB Mesa distribution manifest."
+        "Could not download the CNB Mesa distribution manifest."
     manifest_size="$(stat -c '%s' "$CNB_MANIFEST_FILE")" || die \
-        "无法读取 CNB Mesa 分发清单大小。" "Could not read the CNB Mesa distribution manifest size."
+        "Could not read the CNB Mesa distribution manifest size."
     [[ "$manifest_size" =~ ^[0-9]+$ && "$manifest_size" -gt 0 && \
        "$manifest_size" -le "$MAX_MANIFEST_BYTES" ]] || die \
-        "CNB Mesa 分发清单大小无效。" "The CNB Mesa distribution manifest size is invalid."
+        "The CNB Mesa distribution manifest size is invalid."
     rows="$(cnb_manifest_asset_rows "$CNB_MANIFEST_FILE")" || die \
-        "CNB Mesa 分发清单格式无效。" "The CNB Mesa distribution manifest format is invalid."
+        "The CNB Mesa distribution manifest format is invalid."
 
     while IFS=$'\t' read -r checksum size asset; do
         [[ -n "$checksum" && -n "$size" && -n "$asset" ]] || continue
@@ -635,16 +617,13 @@ resolve_cnb_distribution_manifest() {
     done <<< "$rows"
 
     (( archive_count == 1 && driver_count == 1 && checksums_count == 1 )) || die \
-        "CNB Mesa 分发清单缺少或重复目标资产。" \
         "The CNB Mesa distribution manifest has missing or duplicate target assets."
     (( archive_size <= MAX_ARCHIVE_BYTES && driver_size <= MAX_MEDIA_DRIVER_BYTES && \
        checksums_size <= MAX_CHECKSUMS_BYTES )) || die \
-        "CNB Mesa 分发清单中的资产超过大小限制。" \
         "An asset in the CNB Mesa distribution manifest exceeds its size limit."
 
     ARCHIVE_NAME="$archive_name"
     [[ "$ARCHIVE_NAME" =~ $ASSET_PATTERN ]] || die \
-        "CNB Mesa 分发清单中的 Mesa 包名无效。" \
         "The Mesa asset name in the CNB distribution manifest is invalid."
     RELEASE_TAG="$DISTRIBUTION_TAG"
     EXPECTED_ARCHIVE_SHA256="$archive_checksum"
@@ -659,7 +638,7 @@ resolve_cnb_distribution_manifest() {
     OFFICIAL_DOWNLOAD_URL="$canonical_base/$ARCHIVE_NAME"
     MEDIA_DRIVER_DOWNLOAD_URL="$canonical_base/$MEDIA_DRIVER_NAME"
     MEDIA_CHECKSUMS_DOWNLOAD_URL="$canonical_base/$MEDIA_CHECKSUMS_NAME"
-    log "已从 CNB 清单选择 Mesa 包: ${ARCHIVE_NAME}" \
+    log \
         "Selected the Mesa asset from the CNB manifest: ${ARCHIVE_NAME}"
 }
 
@@ -732,7 +711,7 @@ probe_download_source() {
     local -a probe_command
 
     probe_url="$(distribution_manifest_url_for_source "$source")" || return 1
-    # 仅探测第一个字节；Mesa 资产远大于 install-anland-kde.sh 测速使用的清单。
+    # Only the first byte is probed; Mesa assets are much larger than the manifest used by install-anland-kde.sh.
     if command -v curl >/dev/null 2>&1; then
         if latency="$(curl -fsSL --range 0-0 \
             --connect-timeout "$SOURCE_PROBE_TIMEOUT_SECONDS" \
@@ -743,14 +722,14 @@ probe_download_source() {
                 format_latency "$latency"
                 return
             fi
-            printf '%s' "$(msg '超时' 'timeout')"
+            printf '%s' "$(msg 'timeout')"
             return
         else
             probe_status=$?
         fi
     elif command -v wget >/dev/null 2>&1; then
         command -v timeout >/dev/null 2>&1 || \
-            die "wget 测试下载源需要 timeout 命令以限制为 ${SOURCE_PROBE_TIMEOUT_SECONDS} 秒。" \
+            die \
                 "Testing download sources with wget requires timeout to enforce the ${SOURCE_PROBE_TIMEOUT_SECONDS}-second limit."
         started="$(date +%s%3N 2>/dev/null || true)"
         probe_command=(wget -q --header='Range: bytes=0-0' --tries=1 \
@@ -762,24 +741,24 @@ probe_download_source() {
                 if (( finished - started < SOURCE_PROBE_TIMEOUT_SECONDS * 1000 )); then
                     printf '%d ms' "$((finished - started))"
                 else
-                    printf '%s' "$(msg '超时' 'timeout')"
+                    printf '%s' "$(msg 'timeout')"
                 fi
             else
-                printf '%s' "$(msg '可用' 'available')"
+                printf '%s' "$(msg 'available')"
             fi
             return
         else
             probe_status=$?
         fi
     else
-        die "未找到 curl 或 wget，无法测试下载源。" \
+        die \
             "Neither curl nor wget was found; download sources cannot be tested."
     fi
 
     if (( probe_status == 28 || probe_status == 124 )); then
-        printf '%s' "$(msg '超时' 'timeout')"
+        printf '%s' "$(msg 'timeout')"
     else
-        printf '%s' "$(msg '不可用' 'unavailable')"
+        printf '%s' "$(msg 'unavailable')"
     fi
 }
 
@@ -787,23 +766,23 @@ select_download_source() {
     local source latency choice
 
     if [[ "$SKIP_SOURCE_PROBE" == true ]]; then
-        log "已按参数选择 $(download_source_name "$DOWNLOAD_SOURCE")，跳过延迟测试。" \
+        log \
             "Selected $(download_source_name "$DOWNLOAD_SOURCE") from the command line; skipping latency checks."
         return
     fi
 
-    log "正在测试下载源延迟（达到 ${SOURCE_PROBE_TIMEOUT_SECONDS} 秒视为超时）..." \
+    log \
         "Testing download-source latency (timeouts at ${SOURCE_PROBE_TIMEOUT_SECONDS} seconds)..."
     for source in 1 2 3; do
         latency="$(probe_download_source "$source")"
         printf '%s. %s %s: %s\n' "$source" "$(download_source_name "$source")" \
-            "$(msg '延迟' 'latency')" "$latency"
+            "$(msg 'latency')" "$latency"
     done
 
     while :; do
-        printf '%s' "$(msg '请输入下载源编号 [1-3]: ' 'Choose a download source [1-3]: ')"
+        printf '%s' "$(msg 'Choose a download source [1-3]: ')"
         if ! IFS= read -r choice; then
-            die "无法读取下载源选择。请使用 -1/--1、-2/--2 或 -3/--3 指定下载源。" \
+            die \
                 "Unable to read a download-source choice. Specify -1/--1, -2/--2, or -3/--3."
         fi
         case "$choice" in
@@ -812,7 +791,7 @@ select_download_source() {
                 return
                 ;;
             *)
-                log "请输入 1、2 或 3。" "Enter 1, 2, or 3."
+                log "Enter 1, 2, or 3."
                 ;;
         esac
     done
@@ -821,7 +800,6 @@ select_download_source() {
 resolve_expected_archive_sha256() {
     if [[ "$DOWNLOAD_SOURCE" == "3" ]]; then
         [[ "$EXPECTED_ARCHIVE_SHA256" =~ ^[0-9a-f]{64}$ ]] || die \
-            "CNB Mesa 分发清单没有有效的 ${ARCHIVE_NAME} SHA-256 校验值。" \
             "The CNB Mesa distribution manifest has no valid SHA-256 digest for ${ARCHIVE_NAME}."
         return
     fi
@@ -832,10 +810,9 @@ resolve_expected_archive_sha256() {
     fi
 
     command -v sha256sum >/dev/null 2>&1 || die \
-        "选择第三方镜像需要 sha256sum 来校验下载文件。" \
         "Selecting a third-party mirror requires sha256sum to verify the downloaded file."
     if [[ ! "$OFFICIAL_ARCHIVE_DIGEST" =~ ^sha256:([0-9A-Fa-f]{64})$ ]]; then
-        die "GitHub Release 未提供 ${ARCHIVE_NAME} 的有效 SHA-256 校验值，拒绝使用第三方镜像包。" \
+        die \
             "GitHub Release did not provide a valid SHA-256 digest for ${ARCHIVE_NAME}; refusing the third-party mirror package."
     fi
     EXPECTED_ARCHIVE_SHA256="${BASH_REMATCH[1],,}"
@@ -862,10 +839,9 @@ release_digest_sha256() {
 resolve_media_decode_release() {
     local metadata driver_json checksums_json expected_url
 
-    log "正在读取滚动分发 Release 中的媒体解码驱动..." \
+    log \
         "Reading the media decode driver from the rolling distribution Release..."
     metadata="$(download_stdout "$MEDIA_DECODE_API_URL")" || die \
-        "无法获取媒体解码驱动 Release 信息，可能触发了 GitHub API 限制。" \
         "Unable to fetch media decode driver Release metadata; the GitHub API may be rate-limited."
 
     if ! jq -e '
@@ -873,14 +849,12 @@ resolve_media_decode_release() {
         (.prerelease // false) == false and
         (.tag_name | type == "string" and length > 0)
     ' <<< "$metadata" >/dev/null 2>&1; then
-        die "媒体解码驱动的滚动分发 Release 无效。" \
+        die \
             "The rolling media decode distribution Release is invalid."
     fi
     MEDIA_RELEASE_TAG="$(jq -er '.tag_name' <<< "$metadata" 2>/dev/null)" || die \
-        "媒体解码驱动 Release 返回了无效的标签。" \
         "The media decode driver Release returned an invalid tag."
     [[ "$MEDIA_RELEASE_TAG" == "$DISTRIBUTION_TAG" ]] || die \
-        "媒体解码驱动 Release 返回了无效的标签。" \
         "The media decode driver Release returned an invalid tag."
 
     driver_json="$(jq -ce --arg name "$MEDIA_DRIVER_NAME" '
@@ -892,59 +866,45 @@ resolve_media_decode_release() {
         | if length == 1 then .[0] else error("checksum asset match is not unique") end
     ' <<< "$metadata" 2>/dev/null || true)"
     [[ -n "$driver_json" && "$driver_json" != "null" ]] || die \
-        "媒体解码驱动 Release 缺少 ${MEDIA_DRIVER_NAME}。" \
         "The media decode driver Release does not contain ${MEDIA_DRIVER_NAME}."
     [[ -n "$checksums_json" && "$checksums_json" != "null" ]] || die \
-        "媒体解码驱动 Release 缺少 ${MEDIA_CHECKSUMS_NAME}。" \
         "The media decode driver Release does not contain ${MEDIA_CHECKSUMS_NAME}."
 
     MEDIA_DRIVER_DOWNLOAD_URL="$(jq -er '.browser_download_url // empty' \
         <<< "$driver_json" 2>/dev/null)" || die \
-        "媒体解码驱动 Release 返回了无效的驱动下载地址。" \
         "The media decode driver Release returned an invalid driver download URL."
     MEDIA_DRIVER_RELEASE_DIGEST="$(jq -er '.digest // empty' \
         <<< "$driver_json" 2>/dev/null)" || die \
-        "媒体解码驱动 Release 未提供驱动摘要。" \
         "The media decode driver Release did not provide a driver digest."
     MEDIA_DRIVER_RELEASE_SIZE="$(jq -er '.size | select(type == "number" and . > 0 and floor == .)' \
         <<< "$driver_json" 2>/dev/null)" || die \
-        "媒体解码驱动 Release 返回了无效的驱动大小。" \
         "The media decode driver Release returned an invalid driver size."
     MEDIA_CHECKSUMS_DOWNLOAD_URL="$(jq -er '.browser_download_url // empty' \
         <<< "$checksums_json" 2>/dev/null)" || die \
-        "媒体解码驱动 Release 返回了无效的校验文件下载地址。" \
         "The media decode driver Release returned an invalid checksum download URL."
     MEDIA_CHECKSUMS_RELEASE_DIGEST="$(jq -er '.digest // empty' \
         <<< "$checksums_json" 2>/dev/null)" || die \
-        "媒体解码驱动 Release 未提供校验文件摘要。" \
         "The media decode driver Release did not provide a checksum-file digest."
     MEDIA_CHECKSUMS_RELEASE_SIZE="$(jq -er '.size | select(. > 0 and floor == .)' \
         <<< "$checksums_json" 2>/dev/null)" || die \
-        "媒体解码驱动 Release 返回了无效的校验文件大小。" \
         "The media decode driver Release returned an invalid checksum-file size."
 
     expected_url="${GITHUB_RELEASE_URL}/${RELEASE_REPOSITORY}/releases/download/${MEDIA_RELEASE_TAG}/${MEDIA_DRIVER_NAME}"
     [[ "$MEDIA_DRIVER_DOWNLOAD_URL" == "$expected_url" ]] || die \
-        "媒体解码驱动 Release 返回了无效的驱动下载地址。" \
         "The media decode driver Release returned an invalid driver download URL."
     expected_url="${GITHUB_RELEASE_URL}/${RELEASE_REPOSITORY}/releases/download/${MEDIA_RELEASE_TAG}/${MEDIA_CHECKSUMS_NAME}"
     [[ "$MEDIA_CHECKSUMS_DOWNLOAD_URL" == "$expected_url" ]] || die \
-        "媒体解码驱动 Release 返回了无效的校验文件下载地址。" \
         "The media decode driver Release returned an invalid checksum download URL."
     release_digest_sha256 "$MEDIA_DRIVER_RELEASE_DIGEST" >/dev/null || die \
-        "媒体解码驱动 Release 返回了无效的驱动 SHA-256 摘要。" \
         "The media decode driver Release returned an invalid driver SHA-256 digest."
     release_digest_sha256 "$MEDIA_CHECKSUMS_RELEASE_DIGEST" >/dev/null || die \
-        "媒体解码驱动 Release 返回了无效的校验文件 SHA-256 摘要。" \
         "The media decode driver Release returned an invalid checksum-file SHA-256 digest."
     (( MEDIA_DRIVER_RELEASE_SIZE <= MAX_MEDIA_DRIVER_BYTES )) || die \
-        "媒体解码驱动超过允许的大小。" \
         "The media decode driver exceeds the allowed size."
     (( MEDIA_CHECKSUMS_RELEASE_SIZE <= MAX_CHECKSUMS_BYTES )) || die \
-        "媒体解码驱动校验文件超过允许的大小。" \
         "The media decode checksum file exceeds the allowed size."
 
-    log "已选择媒体解码驱动: ${MEDIA_DRIVER_NAME} (${MEDIA_RELEASE_TAG})" \
+    log \
         "Selected media decode driver: ${MEDIA_DRIVER_NAME} (${MEDIA_RELEASE_TAG})"
 }
 
@@ -974,62 +934,48 @@ download_media_decode_driver() {
     MEDIA_CHECKSUMS_FILE="$WORK_DIR/$MEDIA_CHECKSUMS_NAME"
     driver_url="$(download_url_for_release_asset \
         "$DOWNLOAD_SOURCE" "$RELEASE_REPOSITORY" "$MEDIA_DRIVER_DOWNLOAD_URL")" || die \
-        "无法构造媒体解码驱动的下载地址。" \
         "Could not build the media decode driver download URL."
     checksums_url="$(download_url_for_release_asset \
         "$DOWNLOAD_SOURCE" "$RELEASE_REPOSITORY" "$MEDIA_CHECKSUMS_DOWNLOAD_URL")" || die \
-        "无法构造媒体解码驱动校验文件的下载地址。" \
         "Could not build the media decode driver checksum download URL."
 
-    log "正在从 $(download_source_name "$DOWNLOAD_SOURCE") 下载媒体解码驱动 ${MEDIA_RELEASE_TAG}..." \
+    log \
         "Downloading media decode driver ${MEDIA_RELEASE_TAG} from $(download_source_name "$DOWNLOAD_SOURCE")..."
     download_file "$checksums_url" "$MEDIA_CHECKSUMS_FILE" || die \
-        "媒体解码驱动校验文件下载失败。" \
         "The media decode driver checksum file download failed."
     checksums_size="$(stat -c '%s' "$MEDIA_CHECKSUMS_FILE")" || die \
-        "无法读取媒体解码驱动校验文件大小。" \
         "Unable to read the media decode checksum-file size."
     [[ "$checksums_size" =~ ^[0-9]+$ && "$checksums_size" -eq "$MEDIA_CHECKSUMS_RELEASE_SIZE" ]] || die \
-        "下载的 ${MEDIA_CHECKSUMS_NAME} 大小与 Release 不一致。" \
         "Downloaded ${MEDIA_CHECKSUMS_NAME} size does not match the Release."
     checksums_digest="$(release_digest_sha256 "$MEDIA_CHECKSUMS_RELEASE_DIGEST")" || die \
-        "媒体解码驱动 Release 返回了无效的校验文件 SHA-256 摘要。" \
         "The media decode driver Release returned an invalid checksum-file SHA-256 digest."
     validate_sha256_file "$MEDIA_CHECKSUMS_FILE" "$checksums_digest" || die \
-        "下载的 ${MEDIA_CHECKSUMS_NAME} 未通过 Release SHA-256 校验。" \
         "Downloaded ${MEDIA_CHECKSUMS_NAME} failed Release SHA-256 verification."
 
     manifest_driver_digest="$(awk -v name="$MEDIA_DRIVER_NAME" '
         $1 ~ /^[0-9A-Fa-f]{64}$/ && $2 == name { print tolower($1) }
     ' "$MEDIA_CHECKSUMS_FILE")"
     [[ "$manifest_driver_digest" =~ ^[0-9a-f]{64}$ ]] || die \
-        "${MEDIA_CHECKSUMS_NAME} 中缺少唯一有效的 ${MEDIA_DRIVER_NAME} 摘要。" \
         "${MEDIA_CHECKSUMS_NAME} does not contain one valid digest for ${MEDIA_DRIVER_NAME}."
     [[ "$(awk -v name="$MEDIA_DRIVER_NAME" '$2 == name { count++ } END { print count + 0 }' \
         "$MEDIA_CHECKSUMS_FILE")" == "1" ]] || die \
-        "${MEDIA_CHECKSUMS_NAME} 中的 ${MEDIA_DRIVER_NAME} 摘要不唯一。" \
         "${MEDIA_CHECKSUMS_NAME} contains multiple digests for ${MEDIA_DRIVER_NAME}."
     release_driver_digest="$(release_digest_sha256 "$MEDIA_DRIVER_RELEASE_DIGEST")" || die \
-        "媒体解码驱动 Release 返回了无效的驱动 SHA-256 摘要。" \
         "The media decode driver Release returned an invalid driver SHA-256 digest."
     [[ "$manifest_driver_digest" == "$release_driver_digest" ]] || die \
-        "${MEDIA_CHECKSUMS_NAME} 与 Release 中的驱动摘要不一致。" \
         "The driver digests in ${MEDIA_CHECKSUMS_NAME} and the Release do not match."
 
     download_file "$driver_url" "$MEDIA_DRIVER_FILE" || die \
-        "媒体解码驱动下载失败。" "The media decode driver download failed."
+        "The media decode driver download failed."
     [[ -f "$MEDIA_DRIVER_FILE" ]] || die \
-        "下载的媒体解码驱动不存在。" "The downloaded media decode driver does not exist."
+        "The downloaded media decode driver does not exist."
     driver_size="$(stat -c '%s' "$MEDIA_DRIVER_FILE")" || die \
-        "无法读取媒体解码驱动大小。" "Unable to read the media decode driver size."
+        "Unable to read the media decode driver size."
     [[ "$driver_size" =~ ^[0-9]+$ && "$driver_size" -eq "$MEDIA_DRIVER_RELEASE_SIZE" ]] || die \
-        "下载的媒体解码驱动大小与 Release 不一致。" \
         "The downloaded media decode driver size does not match the Release."
     validate_sha256_file "$MEDIA_DRIVER_FILE" "$manifest_driver_digest" || die \
-        "下载的 ${MEDIA_DRIVER_NAME} 未通过 SHA-256 校验。" \
         "Downloaded ${MEDIA_DRIVER_NAME} failed SHA-256 verification."
     validate_aarch64_shared_object "$MEDIA_DRIVER_FILE" || die \
-        "下载的 ${MEDIA_DRIVER_NAME} 不是 AArch64 ELF 共享对象。" \
         "Downloaded ${MEDIA_DRIVER_NAME} is not an AArch64 ELF shared object."
 }
 
@@ -1037,16 +983,16 @@ validate_archive_size() {
     local archive_size="$1"
 
     [[ -f "$archive_size" ]] || die \
-        "下载文件不存在。" "The downloaded file does not exist."
+        "The downloaded file does not exist."
     local size
     size="$(stat -c '%s' "$archive_size")" || die \
-        "无法读取下载文件大小。" "Unable to read the downloaded file size."
+        "Unable to read the downloaded file size."
     [[ "$size" =~ ^[0-9]+$ && "$size" -gt 0 ]] || die \
-        "下载文件为空。" "The downloaded file is empty."
+        "The downloaded file is empty."
     (( size <= MAX_ARCHIVE_BYTES )) || die \
-        "下载包超过允许的大小。" "The downloaded archive exceeds the allowed size."
+        "The downloaded archive exceeds the allowed size."
     if [[ -n "$EXPECTED_ARCHIVE_SIZE" && "$size" -ne "$EXPECTED_ARCHIVE_SIZE" ]]; then
-        die "下载的 ${ARCHIVE_NAME} 大小与 CNB 分发清单不一致。" \
+        die \
             "Downloaded ${ARCHIVE_NAME} size does not match the CNB distribution manifest."
     fi
 }
@@ -1062,78 +1008,74 @@ validate_archive_paths() {
 
     if [[ "$ARCHIVE_KIND" == "tar.gz" ]]; then
         if ! tar -tzf "$archive_file" > "$listing_file"; then
-            die "无法读取下载包内容。" "Unable to read the downloaded archive contents."
+            die "Unable to read the downloaded archive contents."
         fi
         [[ -s "$listing_file" ]] || die \
-            "下载包中没有文件。" "The downloaded archive contains no files."
+            "The downloaded archive contains no files."
         while IFS= read -r entry; do
             [[ -n "$entry" ]] || continue
             case "$entry" in
                 /*|.|..|../*|*/../*|*/..)
-                    die "下载包包含不安全路径：${entry}" \
+                    die \
                         "The downloaded archive contains an unsafe path: ${entry}"
                     ;;
             esac
         done < "$listing_file"
 
         if ! LC_ALL=C tar -tvzf "$archive_file" > "$verbose_listing_file"; then
-            die "无法读取下载包条目大小。" "Unable to read the downloaded archive entry sizes."
+            die "Unable to read the downloaded archive entry sizes."
         fi
         awk '$3 ~ /^[0-9]+$/ { print $3 }' \
             "$verbose_listing_file" > "$entry_sizes_file"
         [[ -s "$entry_sizes_file" ]] || die \
-            "下载包中没有可校验的条目。" "The downloaded archive has no verifiable entries."
+            "The downloaded archive has no verifiable entries."
         while IFS= read -r entry_size; do
             [[ "$entry_size" =~ ^[0-9]+$ ]] || die \
-                "无法读取下载包条目大小。" "Unable to read an archive entry size."
+                "Unable to read an archive entry size."
             total_size=$((total_size + entry_size))
             (( total_size <= MAX_EXTRACTED_BYTES )) || die \
-                "下载包解压后超过允许的大小。" \
                 "The downloaded archive exceeds the allowed extracted size."
         done < "$entry_sizes_file"
     else
         if ! tar -tf "$archive_file" > "$listing_file"; then
-            die "无法读取 Arch 下载包内容。" "Unable to read the Arch archive contents."
+            die "Unable to read the Arch archive contents."
         fi
         [[ -s "$listing_file" ]] || die \
-            "Arch 下载包中没有文件。" "The Arch archive contains no files."
+            "The Arch archive contains no files."
         while IFS= read -r entry; do
             [[ -n "$entry" ]] || continue
             entry="${entry#./}"
             case "$entry" in
                 /*|.|..|../*|*/../*|*/..)
-                    die "Arch 下载包包含不安全路径：${entry}" \
+                    die \
                         "The Arch archive contains an unsafe path: ${entry}"
                     ;;
                 ""|*/)
                     ;;
                 *.pkg.tar.*|*.sig)
                     [[ "$entry" != */* ]] || die \
-                        "Arch 下载包包含不安全路径：${entry}" \
                         "The Arch archive contains an unsafe path: ${entry}"
                     ;;
                 *)
-                    die "Arch 下载包包含未知文件：${entry}" \
+                    die \
                         "The Arch archive contains an unexpected file: ${entry}"
                     ;;
             esac
         done < "$listing_file"
 
         if ! LC_ALL=C tar -tvf "$archive_file" > "$verbose_listing_file"; then
-            die "无法读取 Arch 下载包条目大小。" \
+            die \
                 "Unable to read the Arch archive entry sizes."
         fi
         awk '$3 ~ /^[0-9]+$/ { print $3 }' \
             "$verbose_listing_file" > "$entry_sizes_file"
         [[ -s "$entry_sizes_file" ]] || die \
-            "Arch 下载包中没有可校验的条目。" \
             "The Arch archive has no verifiable entries."
         while IFS= read -r entry_size; do
             [[ "$entry_size" =~ ^[0-9]+$ ]] || die \
-                "无法读取 Arch 下载包条目大小。" "Unable to read an Arch archive entry size."
+                "Unable to read an Arch archive entry size."
             total_size=$((total_size + entry_size))
             (( total_size <= MAX_EXTRACTED_BYTES )) || die \
-                "Arch 下载包解压后超过允许的大小。" \
                 "The Arch archive exceeds the allowed extracted size."
         done < "$entry_sizes_file"
     fi
@@ -1151,8 +1093,8 @@ Pin: release *
 Pin-Priority: -1
 EOF
     [[ -s "$preferences_file" ]] || die \
-        "无法写入 APT 版本锁定配置。" "Unable to write the APT version hold configuration."
-    log "已写入 APT 软件包锁定: ${preferences_file}" \
+        "Unable to write the APT version hold configuration."
+    log \
         "Wrote the APT package hold configuration: ${preferences_file}"
 }
 
@@ -1201,9 +1143,9 @@ write_dnf_config_with_managed_block() {
     rewrite_without_managed_block \
         "$input_file" "$stripped_file" "$DNF_MANAGED_BEGIN" "$DNF_MANAGED_END" || return 1
 
-    # DNF 会把兼容 yum 的 exclude 别名与 excludepkgs 绑定到同一个追加列表。
-    # 使用不同键可以避免 INI 解析器替换重复键，同时兼容 Anland 的
-    # excludepkgs 规则。
+    # DNF binds the yum-compatible exclude alias and excludepkgs to the same append list.
+    # Using different keys avoids the INI parser replacing duplicate keys while staying
+    # compatible with Anland's excludepkgs rules.
     awk -v begin="$DNF_MANAGED_BEGIN" -v end="$DNF_MANAGED_END" \
         -v excludes="$excluded_packages" '
         function contains(value, wanted, normalized, count, tokens, i) {
@@ -1279,16 +1221,15 @@ configure_dnf_holds() {
         install -m 0644 /dev/null "$DNF_CONFIG"
     fi
     [[ -f "$DNF_CONFIG" ]] || die \
-        "DNF 配置不是普通文件：${DNF_CONFIG}。" \
         "The DNF configuration is not a regular file: ${DNF_CONFIG}."
 
     if ! write_dnf_config_with_managed_block "$DNF_CONFIG" "$temporary_config"; then
-        die "DNF 锁定配置中的托管标记无效。" \
+        die \
             "The managed markers in the DNF hold configuration are invalid."
     fi
     install -m 0644 "$temporary_config" "$DNF_CONFIG" || die \
-        "无法写入 DNF 软件包锁定配置。" "Unable to write the DNF package hold configuration."
-    log "已写入 DNF 软件包锁定: ${DNF_CONFIG}" \
+        "Unable to write the DNF package hold configuration."
+    log \
         "Wrote the DNF package hold configuration: ${DNF_CONFIG}"
 }
 
@@ -1346,27 +1287,26 @@ configure_pacman_holds() {
         packages+=(systemd systemd-libs systemd-sysvcompat)
     fi
     if ! printf '%s\n' "${packages[@]}" | sort -u > "$sorted_packages_file"; then
-        die "无法整理 Arch 软件包锁定列表。" "Unable to prepare the Arch package hold list."
+        die "Unable to prepare the Arch package hold list."
     fi
     mapfile -t unique_packages < "$sorted_packages_file"
     ((${#unique_packages[@]} > 0)) || die \
-        "没有可锁定的 Arch 软件包。" "There are no Arch packages to hold."
+        "There are no Arch packages to hold."
     for package in "${unique_packages[@]}"; do
         [[ "$package" =~ ^[[:alnum:]@._+*-]+$ ]] || die \
-            "Arch 软件包名无效：${package}。" "Invalid Arch package name: ${package}."
+            "Invalid Arch package name: ${package}."
     done
     printf -v packages_line '%s ' "${unique_packages[@]}"
     packages_line="${packages_line% }"
 
     if ! write_pacman_config_with_managed_block \
         "$PACMAN_CONFIG" "$temporary_config" "$packages_line"; then
-        die "pacman.conf 缺少 [options] 段，或锁定配置中的托管标记无效。" \
+        die \
             "pacman.conf has no [options] section, or its managed hold markers are invalid."
     fi
     install -m 0644 "$temporary_config" "$PACMAN_CONFIG" || die \
-        "无法写入 Pacman 软件包锁定配置。" \
         "Unable to write the Pacman package hold configuration."
-    log "已写入 Pacman 软件包锁定: ${PACMAN_CONFIG}" \
+    log \
         "Wrote the Pacman package hold configuration: ${PACMAN_CONFIG}"
 }
 
@@ -1382,7 +1322,7 @@ configure_package_holds() {
             configure_pacman_holds "${MESA_PACKAGE_NAMES[@]}"
             ;;
         *)
-            die "内部错误：无法为 ${PACKAGE_MANAGER} 配置软件包锁定。" \
+            die \
                 "Internal error: cannot configure package holds for ${PACKAGE_MANAGER}."
             ;;
     esac
@@ -1398,18 +1338,18 @@ install_arch_packages() {
     pacman_config="$WORK_DIR/pacman.conf"
     cp -p "$PACMAN_CONFIG" "$pacman_config"
 
-    # Mesa Release 软件包有意不签名，因此仅在此临时 Pacman 配置中
-    # 放宽签名策略。
+    # Mesa Release packages are intentionally unsigned, so the signature policy is
+    # relaxed only in this temporary Pacman configuration.
     if grep -Eq '^[[:space:]]*#?[[:space:]]*SigLevel[[:space:]]*=' "$pacman_config"; then
         sed -i -E 's/^[[:space:]]*#?[[:space:]]*SigLevel[[:space:]]*=.*/SigLevel = Never/' "$pacman_config"
     elif grep -qE '^\[options\][[:space:]]*$' "$pacman_config"; then
         sed -i '/^\[options\][[:space:]]*$/a SigLevel = Never' "$pacman_config"
     else
-        die "pacman.conf 缺少 [options] 段。" "pacman.conf has no [options] section."
+        die "pacman.conf has no [options] section."
     fi
 
     if ! tar -tf "$ARCHIVE_FILE" > "$package_listing_file"; then
-        die "无法读取 Arch 下载包内容。" "Unable to read the Arch archive contents."
+        die "Unable to read the Arch archive contents."
     fi
     while IFS= read -r entry; do
         [[ -n "$entry" ]] || continue
@@ -1421,27 +1361,27 @@ install_arch_packages() {
         esac
     done < "$package_listing_file"
     ((${#package_files[@]} > 0)) || die \
-        "Arch 下载包中没有可安装的软件包。" "The Arch archive has no installable packages."
+        "The Arch archive has no installable packages."
     if ! pacman -Qq -p "${package_files[@]}" | sort -u > "$package_names_file"; then
-        die "无法读取 Arch Mesa 包名。" "Could not determine the Arch Mesa package names."
+        die "Could not determine the Arch Mesa package names."
     fi
     [[ -s "$package_names_file" ]] || die \
-        "无法读取 Arch Mesa 包名。" "Could not determine the Arch Mesa package names."
+        "Could not determine the Arch Mesa package names."
     mapfile -t MESA_PACKAGE_NAMES < "$package_names_file"
     ((${#MESA_PACKAGE_NAMES[@]} > 0)) || die \
-        "无法读取 Arch Mesa 包名。" "Could not determine the Arch Mesa package names."
+        "Could not determine the Arch Mesa package names."
 
-    log "正在安装 Arch GPU 初始化所需的 LLVM 22..." \
+    log \
         "Installing LLVM 22 required for Arch GPU initialization..."
     pacman -S --noconfirm --needed llvm22
 
-    log "正在安装 ${#package_files[@]} 个 Arch Mesa 包..." \
+    log \
         "Installing ${#package_files[@]} Arch Mesa packages..."
     pacman --config "$pacman_config" -U --noconfirm "${package_files[@]}"
 }
 
 install_tar_gz() {
-    log "正在解压 ${TARGET} Mesa 驱动..." "Extracting the ${TARGET} Mesa driver..."
+    log "Extracting the ${TARGET} Mesa driver..."
     tar --extract --gzip --file "$ARCHIVE_FILE" --directory / \
         --no-same-owner --keep-directory-symlink
     ldconfig
@@ -1449,31 +1389,29 @@ install_tar_gz() {
 
 install_media_decode_driver() {
     install -d -m 0755 "$MEDIA_DRIVER_INSTALL_DIR" || die \
-        "无法创建媒体解码驱动目录：${MEDIA_DRIVER_INSTALL_DIR}。" \
         "Unable to create the media decode driver directory: ${MEDIA_DRIVER_INSTALL_DIR}."
     MEDIA_DRIVER_TEMP_FILE="$(mktemp "${MEDIA_DRIVER_INSTALL_PATH}.tmp.XXXXXXXX")" || die \
-        "无法在目标目录创建媒体解码驱动临时文件。" \
         "Unable to create a temporary media decode driver in the destination directory."
     if ! install -m 0644 "$MEDIA_DRIVER_FILE" "$MEDIA_DRIVER_TEMP_FILE"; then
         rm -f -- "$MEDIA_DRIVER_TEMP_FILE"
-        die "无法写入媒体解码驱动。" "Unable to write the media decode driver."
+        die "Unable to write the media decode driver."
     fi
     if ! mv -f -- "$MEDIA_DRIVER_TEMP_FILE" "$MEDIA_DRIVER_INSTALL_PATH"; then
         rm -f -- "$MEDIA_DRIVER_TEMP_FILE"
-        die "无法安装媒体解码驱动。" "Unable to install the media decode driver."
+        die "Unable to install the media decode driver."
     fi
     MEDIA_DRIVER_TEMP_FILE=""
-    log "已安装媒体解码驱动: ${MEDIA_DRIVER_INSTALL_PATH} (${MEDIA_RELEASE_TAG})" \
+    log \
         "Installed media decode driver: ${MEDIA_DRIVER_INSTALL_PATH} (${MEDIA_RELEASE_TAG})"
 }
 
 install_mesa() {
-    log "正在下载并安装最新版 Mesa 和媒体解码驱动..." \
+    log \
         "Downloading and installing the latest Mesa and media decode drivers..."
     WORK_DIR="$(mktemp -d -t install-mesa.XXXXXXXX)" || die \
-        "无法创建临时目录。" "Unable to create a temporary directory."
+        "Unable to create a temporary directory."
     chmod 0700 "$WORK_DIR" || die \
-        "无法保护临时目录。" "Unable to secure the temporary directory."
+        "Unable to secure the temporary directory."
     if [[ "$DOWNLOAD_SOURCE" == "3" ]]; then
         resolve_cnb_distribution_manifest
     else
@@ -1482,17 +1420,17 @@ install_mesa() {
     fi
     resolve_expected_archive_sha256
     DOWNLOAD_URL="$(download_url_for_source "$DOWNLOAD_SOURCE")" || die \
-        "无法构造所选下载源的地址。" "Could not build the selected download-source URL."
+        "Could not build the selected download-source URL."
     ARCHIVE_FILE="$WORK_DIR/$ARCHIVE_NAME"
 
-    log "正在从 $(download_source_name "$DOWNLOAD_SOURCE") 下载 ${ARCHIVE_NAME}..." \
+    log \
         "Downloading ${ARCHIVE_NAME} from $(download_source_name "$DOWNLOAD_SOURCE")..."
     download_file "$DOWNLOAD_URL" "$ARCHIVE_FILE" || die \
-        "Mesa 驱动下载失败。" "The Mesa driver download failed."
+        "The Mesa driver download failed."
     validate_archive_size "$ARCHIVE_FILE"
     if [[ -n "$EXPECTED_ARCHIVE_SHA256" ]] && \
         ! validate_release_asset_checksum "$ARCHIVE_FILE"; then
-        die "下载的 ${ARCHIVE_NAME} 未通过 SHA-256 校验。" \
+        die \
             "Downloaded ${ARCHIVE_NAME} failed SHA-256 verification."
     fi
     validate_archive_paths "$ARCHIVE_FILE"
@@ -1508,7 +1446,7 @@ install_mesa() {
             install_tar_gz
             ;;
         *)
-            die "内部错误：未知的软件包管理器 ${PACKAGE_MANAGER}。" \
+            die \
                 "Internal error: unknown package manager ${PACKAGE_MANAGER}."
             ;;
     esac
@@ -1518,7 +1456,6 @@ install_mesa() {
 }
 
 main() {
-    detect_language
     parse_arguments "$@"
     detect_target
     check_architecture
@@ -1530,7 +1467,7 @@ main() {
     select_download_source
     require_commands
     install_mesa
-    log "Mesa 和媒体解码驱动安装完成，相关软件包已锁定。" \
+    log \
         "Mesa and media decode driver installation completed; related packages are now held."
 }
 

@@ -29,7 +29,7 @@ configure_environment() {
             esac
             ;;
         *)
-            echo "KDE 显示后端无效：$backend" >&2
+            echo "Invalid KDE display backend: $backend" >&2
             return 1
             ;;
     esac
@@ -72,7 +72,7 @@ install_apt() {
                 polkit-kde-agent-1 libpam-systemd libpam-modules libpam-kwallet5 plasma-session-x11 language-pack-kde-zh-hans language-pack-zh-hans qt6-translations-l10n
             ;;
         *)
-            echo "KDE 不支持当前系统：$ID $VERSION_ID" >&2
+            echo "KDE does not support the current system: $ID $VERSION_ID" >&2
             return 1
             ;;
     esac
@@ -81,7 +81,7 @@ install_apt() {
 install_fedora() {
     case "$VERSION_ID" in
         43|44) ;;
-        *) echo "KDE 不支持 Fedora $VERSION_ID" >&2; return 1 ;;
+        *) echo "KDE does not support Fedora $VERSION_ID" >&2; return 1 ;;
     esac
 
     echo '%_install_langs all' > /etc/rpm/macros.image-language-conf
@@ -166,12 +166,12 @@ install_profile() {
         debian|ubuntu) install_apt ;;
         fedora) install_fedora ;;
         arch|archarm|archlinux) install_arch ;;
-        *) echo "KDE 不支持当前发行版：$ID" >&2; return 1 ;;
+        *) echo "KDE does not support the current distribution: $ID" >&2; return 1 ;;
     esac
 }
 
 case "${1:-install}" in
     install) install_profile ;;
     configure-environment) configure_environment "${2:-}" ;;
-    *) echo "KDE profile 操作无效：$1" >&2; exit 1 ;;
+    *) echo "Invalid KDE profile action: $1" >&2; exit 1 ;;
 esac

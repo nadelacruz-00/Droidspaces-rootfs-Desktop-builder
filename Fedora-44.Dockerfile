@@ -22,7 +22,7 @@ ARG ANLAND_PACKAGE_REVISION=unknown
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 通用 Droidspaces USB Manager 安装器
+# Generic Droidspaces USB Manager installer
 COPY scripts/install-usb-manager.sh /usr/local/sbin/install-droidspaces-usb-manager
 COPY scripts/systemd257.sh /usr/local/sbin/systemd257
 COPY scripts/tui/install-anland-kde.sh /usr/local/sbin/install-anland-kde
@@ -44,7 +44,7 @@ RUN if [ "$DISPLAY_BACKEND" = "anland-wayland" ]; then \
     fi && \
     rm -f /tmp/Anland-Audio.conf
 
-# 加速下载
+# Speed up downloads
 RUN echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf && \
     echo "fastestmirror=True" >> /etc/dnf/dnf.conf && \
     echo "defaultyes=True" >> /etc/dnf/dnf.conf
@@ -53,35 +53,35 @@ RUN chmod +x /usr/local/sbin/install-anland-* /usr/local/sbin/install-mesa /usr/
     ln -s droidspaces-tui /usr/local/bin/dstui && \
     ln -s droidspaces-tui /usr/local/bin/ds-tui && \
     dnf install -y --setopt=install_weak_deps=False \
-    # 核心工具组件
+    # Core utility components
     bash jq dialog coreutils file findutils grep sed gawk curl wget ca-certificates bash-completion systemd-udev dbus-daemon systemd systemd-pam systemd-resolved fastfetch \
-    # 用户请求的基础开发/编辑工具
+    # Basic development/editing tools requested by the user
     git nano sudo \
-    # 网络与 SSH 工具（包含 DHCP 客户端）
+    # Networking and SSH tools (including the DHCP client)
     openssh-server net-tools iptables iptables-legacy iputils iproute bind-utils dhcp-client \
-    # 用于系统监控的 procps 进程工具
+    # procps process tools for system monitoring
     procps-ng \
-    # 核心内核模块支持及语言包
+    # Core kernel module support and language packs
     kmod tzdata tar glibc-locale-source glibc-langpack-en glibc-langpack-zh && \
     /usr/local/sbin/install-desktop "$DESKTOP" && \
-    # 输入法 fcitx5 (可选)
+    # Input method fcitx5 (optional)
     if [ "$ENABLE_srf_ARG" = "true" ]; then \
         dnf install -y  fcitx5 fcitx5-qt fcitx5-gtk ; \
     fi && \
     if [ "$ENABLE_srf_ARG" = "true" ] && [ "$ENABLE_zh_tz_ARG" = "true" ]; then \
         dnf install -y --setopt=install_weak_deps=False fcitx5-chinese-addons; \
     fi && \
-    ## 开发工具集成 (可选)
+    ## Development toolchain (optional)
     if [ "$ENABLE_kfgj_ARG" = "true" ]; then \
         dnf install -y --setopt=install_weak_deps=False \
         gcc gcc-c++ make cmake autoconf automake libtool pkgconf clang llvm python3 python3-pip python3-devel; \
     fi && \
-    ## 压缩工具扩展 (可选)
+    ## Additional compression tools (optional)
     if [ "$ENABLE_zip_ARG" = "true" ]; then \
         dnf install -y --setopt=install_weak_deps=False \
         zip unzip p7zip p7zip-plugins bzip2 xz tar gzip; \
     fi && \
-    ## docker (可选)
+    ## docker (optional)
     if [ "$ENABLE_docker_ARG" = "true" ]; then \
         dnf install -y --setopt=install_weak_deps=False \
         moby-engine docker-compose docker-cli; \
@@ -90,15 +90,15 @@ RUN chmod +x /usr/local/sbin/install-anland-* /usr/local/sbin/install-mesa /usr/
     dnf clean all && \
     rm -rf /var/cache/dnf
 
-############################################## Anland Wayland 支持 ################################################
+############################################## Anland Wayland support ################################################
 RUN if [ "$DISPLAY_BACKEND" = "anland-wayland" ]; then \
-        echo "--> [开启] 正在安装 $DESKTOP 的 Anland 包 (${ANLAND_PACKAGE_REVISION})..." && \
+        echo "--> [enabled] Installing the Anland packages for $DESKTOP (${ANLAND_PACKAGE_REVISION})..." && \
         ANLAND_RELEASE_REPOSITORY="$ANLAND_RELEASE_REPOSITORY" \
         /usr/local/sbin/install-anland-desktop "$DESKTOP" --1 && \
-        echo "--> [开启] $DESKTOP 的 Anland 支持已安装"; \
+        echo "--> [enabled] Anland support for $DESKTOP installed"; \
     fi
 
-# 强制配置使用 iptables-legacy（兼容 Android 内核的硬性要求）
+# Force the configuration to use iptables-legacy (a hard requirement for Android kernel compatibility)
 RUN ln -sf /usr/sbin/iptables-legacy /usr/sbin/iptables && \
     ln -sf /usr/sbin/ip6tables-legacy /usr/sbin/ip6tables && \
     ln -sf /usr/sbin/iptables-legacy-save /usr/sbin/iptables-save && \
@@ -115,18 +115,18 @@ RUN if [ "$ENABLE_zh_tz_ARG" = "true" ]; then \
         echo "LANG=en_US.UTF-8" > /etc/locale.conf && \
         echo "LC_ALL=en_US.UTF-8" >> /etc/locale.conf; \
     fi && \
-    # 配置 SSH 服务
+    # Configure the SSH service
     mkdir -p /var/run/sshd && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
-    # 删除默认可能存在的用户并创建新用户
+    # Delete the default user that may exist and create a new user
     (userdel -r debian 2>/dev/null || true) && \
     useradd -m -s /bin/bash ${USERNAME} && echo "${USERNAME}:1234" | chpasswd
 
-# 为所有 Fedora RootFS 安装 Droidspaces USB Manager
+# Install the Droidspaces USB Manager for all Fedora RootFS
 RUN /usr/local/sbin/install-droidspaces-usb-manager --user "${USERNAME}"
 
-# 初始化环境变量文件；桌面专属变量由对应 profile 管理。
+# Initialize the environment variable file; desktop-specific variables are managed by the corresponding profile.
 RUN : > /etc/environment
 
 RUN if [ "$ENABLE_mesa_ARG" = "true" ] && [ "$DISPLAY_BACKEND" = "anland-wayland" ]; then \
@@ -135,18 +135,18 @@ RUN if [ "$ENABLE_mesa_ARG" = "true" ] && [ "$DISPLAY_BACKEND" = "anland-wayland
         echo "FD_FORCE_KGSL=1" >> /etc/environment; \
     fi
 
-# 修复骁龙8 Gen 2 设备在 Wayland 下的花屏问题
+# Fix the screen corruption on Snapdragon 8 Gen 2 devices under Wayland
 RUN if [ "$ENABLE_8gen2_wayland_ARG" = "true" ]; then \
         echo "FD_DEV_FEATURES=enable_tp_ubwc_flag_hint=1" >> /etc/environment; \
     fi
-# 音频选择
+# Audio selection
 RUN if [ "$PulseAudio" = "socket" ]; then \
         echo "PULSE_SERVER=unix:/tmp/.pulse-socket" >> /etc/environment; \
     elif [ "$PulseAudio" = "tcp" ]; then \
         echo "PULSE_SERVER=tcp:127.0.0.1:4713" >> /etc/environment; \
     fi
 
-# 输入法开机自启动
+# Autostart the input method at boot
 COPY scripts/start/ /tmp/droidspaces-start/
 RUN <<'EOF_RUN'
     if [ "$ENABLE_srf_ARG" = "true" ]; then
@@ -188,13 +188,13 @@ EOF_RUN
 RUN if [ "$ENABLE_mesa_ARG" = "true" ]; then \
         /usr/local/sbin/install-mesa --1; \
     else \
-        echo "--> [跳过] 未开启 Mesa 驱动安装"; \
+        echo "--> [skipped] Mesa driver installation is not enabled"; \
     fi
 
-# 安装并配置原生 ARM64 Google Chrome。
+# Install and configure native ARM64 Google Chrome.
 RUN /usr/local/sbin/configure-chrome "$DESKTOP" "$DISPLAY_BACKEND"
 
-# 修复容器内的 DHCP 网络服务配置
+# Fix the DHCP network service configuration inside the container
 RUN mkdir -p /etc/systemd/network && \
     cat <<'EOF' > /etc/systemd/network/10-eth-dhcp.network
 [Match]
@@ -210,10 +210,10 @@ UseDomains=yes
 RouteMetric=100
 EOF
 
-# 应用 Android 运行环境兼容性修复（重点针对 Systemd 和 Udev）
+# Apply Android runtime compatibility fixes (mainly for Systemd and Udev)
 RUN <<'EOF_RUN'
 
-# --- 1. 常规兼容性修复 ---
+# --- 1. General compatibility fixes ---
 grep -q '^aid_inet:' /etc/group     || echo 'aid_inet:x:3003:'    >> /etc/group
 grep -q '^aid_net_raw:' /etc/group || echo 'aid_net_raw:x:3004:' >> /etc/group
 grep -q '^aid_net_admin:' /etc/group || echo 'aid_net_admin:x:3005:' >> /etc/group
@@ -223,7 +223,7 @@ getent group droidspaces-gpu >/dev/null || groupadd -g 786 -r droidspaces-gpu
 usermod -a -G aid_inet,aid_net_raw,input,video,tty,droidspaces-gpu root || true
 usermod -a -G aid_inet,aid_net_raw,input,video,tty,wheel,droidspaces-gpu ${USERNAME} || true
 
-# --- PipeWire 实时调度权限：修复 Plasma/KWin 反复重启 ---
+# --- PipeWire realtime scheduling permissions: fix Plasma/KWin restarting repeatedly ---
 getent group pipewire >/dev/null || groupadd -r pipewire
 usermod -a -G pipewire ${USERNAME} || true
 mkdir -p /etc/systemd/system.conf.d /etc/systemd/user.conf.d
@@ -231,13 +231,13 @@ printf '[Manager]\nDefaultLimitRTPRIO=70\nDefaultLimitNICE=-19\nDefaultLimitRTTI
     > /etc/systemd/system.conf.d/50-pipewire-rt.conf
 cp /etc/systemd/system.conf.d/50-pipewire-rt.conf /etc/systemd/user.conf.d/50-pipewire-rt.conf
 
-# 确保未来通过 useradd 创建的新用户也会进入附加组 (Fedora 通过 /etc/default/useradd 处理)
+# Make sure new users created later via useradd also join the supplementary groups (Fedora handles this through /etc/default/useradd)
 if [ -f /etc/default/useradd ]; then
     sed -i '/^GROUPS=/d' /etc/default/useradd
     echo 'GROUPS="aid_inet,aid_net_raw,input,video,tty"' >> /etc/default/useradd
 fi
 
-# --- 2. 针对 Systemd 的特定修复 ---
+# --- 2. Systemd-specific fixes ---
 ln -sf /dev/null /etc/systemd/system/systemd-networkd-wait-online.service
 ln -sf /dev/null /etc/systemd/system/systemd-journald-audit.socket
 
@@ -271,7 +271,7 @@ if [ "$ENABLE_yj_ARG" = "true" ]; then
         fi
     done
 else
-    # 未启用硬件支持时，屏蔽容器内不需要的系统服务
+    # When hardware support is not enabled, mask the system services not needed inside the container
     for service in systemd-udevd.service systemd-resolved.service systemd-networkd.service NetworkManager.service; do
         ln -sf /dev/null "/etc/systemd/system/$service"
     done
@@ -287,7 +287,7 @@ HandlePowerKeyLongPress=ignore
 HandlePowerKeyLongPressHibernate=ignore
 EOF
 
-# 应用 udev 覆盖配置
+# Apply the udev override configuration
 mkdir -p /etc/systemd/system/systemd-udev-trigger.service.d
 cat > /etc/systemd/system/systemd-udev-trigger.service.d/override.conf << 'EOF'
 [Service]
@@ -300,7 +300,7 @@ for unit in systemd-udevd.service systemd-udev-trigger.service systemd-udev-sett
     printf "[Unit]\nConditionPathIsReadWrite=\n" > "/etc/systemd/system/${unit}.d/99-readonly-fix.conf"
 done
 
-# 仅在 NAT 或网关网络模式下启动网络服务
+# Only start the network services in NAT or gateway network mode
 for unit in NetworkManager.service dhcpcd.service systemd-resolved.service systemd-networkd.service; do
     if [ -f "$GUEST_SYSTEMD_PATH/$unit" ] || [ -f "/etc/systemd/system/multi-user.target.wants/$unit" ]; then
         mkdir -p "/etc/systemd/system/${unit}.d"
@@ -323,11 +323,11 @@ EOF
     fi
 done
 
-# --- 3. Droidspaces NAT 与 DNS 兼容修复 ---
-# 使用标准 glibc 域名解析，/etc/resolv.conf 由 Droidspaces 或 DHCP 解析器管理
+# --- 3. Droidspaces NAT and DNS compatibility fixes ---
+# Use standard glibc name resolution; /etc/resolv.conf is managed by Droidspaces or the DHCP resolver
 sed -i 's/^hosts:.*/hosts: files dns myhostname/' /etc/nsswitch.conf
 
-# 为 NAT 模式创建以 root 权限运行的 DHCP 服务
+# Create a DHCP service that runs with root privileges for NAT mode
 cat > /etc/systemd/system/ds-dhcp.service << 'EOF_DHCP'
 [Unit]
 Description=Droidspaces NAT DHCP (Root Bypass)
@@ -362,7 +362,7 @@ RUN if [ "$ENABLE_binfmt_ARG" = "false" ]; then \
         rm -rf /etc/systemd/system/qemu-binfmt-register.service ; \
     fi
 
-# 注意：Fedora 无法像 Debian 的 dpkg 那样直接添加 amd64 异构架构
+# Note: Fedora cannot add the amd64 foreign architecture directly the way Debian's dpkg does
 RUN if [ "$ENABLE_binfmt_ARG" = "true" ]; then \
         chmod +x /usr/local/bin/qemu-binfmt-register.sh && \
         chmod 644 /etc/systemd/system/qemu-binfmt-register.service && \
@@ -373,15 +373,15 @@ RUN if [ "$ENABLE_binfmt_ARG" = "true" ]; then \
         rm -f /usr/local/bin/qemu-binfmt-register.sh /etc/systemd/system/qemu-binfmt-register.service; \
     fi
 
-# 可选：为 systemd 258+ 发行版构建 systemd 257 旧内核兼容运行时。
+# Optional: build the systemd 257 legacy-kernel compatibility runtime for systemd 258+ distributions.
 RUN if [ "$ENABLE_systemd257_ARG" = "true" ]; then \
         bash /usr/local/sbin/systemd257; \
     else \
-        echo "--> [跳过] 未启用 systemd 257 旧内核兼容"; \
+        echo "--> [skipped] systemd 257 legacy kernel compatibility is not enabled"; \
     fi
 
-# 最终清理 DNF 缓存以缩减镜像体积
-# 打包前删除仅用于构建的一次性脚本；TUI 和运行时脚本保留。
+# Final cleanup of the DNF cache to shrink the image size
+# Remove the one-off build-only scripts before packaging; the TUI and runtime scripts are kept.
 RUN rm -f \
         /usr/local/sbin/configure-chrome \
         /usr/local/sbin/configure-desktop \
@@ -394,7 +394,7 @@ RUN rm -f \
     dnf clean all && \
     rm -rf /var/cache/dnf/* /tmp/* /var/tmp/*
 
-# 阶段 2：将完整的根文件系统导出到 scratch
+# Stage 2: export the complete root filesystem to scratch
 FROM scratch AS export
 
 COPY --from=customizer / /

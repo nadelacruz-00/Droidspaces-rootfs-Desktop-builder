@@ -19,7 +19,7 @@ configure_environment() {
     )
 
     [[ "$backend" == anland-wayland ]] || {
-        echo "KDE mobile 显示后端无效：$backend" >&2
+        echo "Invalid KDE mobile display backend: $backend" >&2
         return 1
     }
     case "$ID" in
@@ -68,7 +68,7 @@ install_apt() {
             apt-get purge -y --auto-remove modemmanager || true
             ;;
         *)
-            echo "KDE mobile 不支持当前系统：$ID $VERSION_ID" >&2
+            echo "KDE mobile does not support the current system: $ID $VERSION_ID" >&2
             return 1
             ;;
     esac
@@ -77,7 +77,7 @@ install_apt() {
 install_fedora() {
     case "$VERSION_ID" in
         43|44) ;;
-        *) echo "KDE mobile 不支持 Fedora $VERSION_ID" >&2; return 1 ;;
+        *) echo "KDE mobile does not support Fedora $VERSION_ID" >&2; return 1 ;;
     esac
 
     echo '%_install_langs all' > /etc/rpm/macros.image-language-conf
@@ -113,12 +113,12 @@ install_profile() {
         debian|ubuntu) install_apt ;;
         fedora) install_fedora ;;
         arch|archarm|archlinux) install_arch ;;
-        *) echo "KDE mobile 不支持当前发行版：$ID" >&2; return 1 ;;
+        *) echo "KDE mobile does not support the current distribution: $ID" >&2; return 1 ;;
     esac
 }
 
 case "${1:-install}" in
     install) install_profile ;;
     configure-environment) configure_environment "${2:-}" ;;
-    *) echo "KDE mobile profile 操作无效：$1" >&2; exit 1 ;;
+    *) echo "Invalid KDE mobile profile action: $1" >&2; exit 1 ;;
 esac

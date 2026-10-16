@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-[[ $# -ge 1 ]] || { echo "必须指定桌面 slug。" >&2; exit 1; }
+[[ $# -ge 1 ]] || { echo "A desktop slug must be specified." >&2; exit 1; }
 desktop="$1"
 shift
 
@@ -11,10 +11,10 @@ case "$desktop" in
     anland-next) installer="/usr/local/sbin/install-anland-next" ;;
     niri) installer="/usr/local/sbin/install-anland-niri" ;;
     *)
-        echo "桌面 $desktop 没有 Anland 软件包安装器。" >&2
+        echo "Desktop $desktop has no Anland package installer." >&2
         exit 1
         ;;
 esac
 
-[[ -x "$installer" ]] || { echo "Anland 安装器不存在或不可执行：$installer" >&2; exit 1; }
+[[ -x "$installer" ]] || { echo "Anland installer is missing or not executable: $installer" >&2; exit 1; }
 exec "$installer" "$@"

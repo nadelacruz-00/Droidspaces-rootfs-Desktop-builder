@@ -1,4 +1,4 @@
-[中文文档](../zh/README.md) · [Project home](../../README_english.md)
+[Project home](../../README.md)
 
 # Documentation
 
@@ -6,7 +6,7 @@
 - [Build options and distribution support](build-options.md)
 - [Desktop startup and Anland Wayland setup](desktop-and-anland.md)
 - [TUI, USB, firmware, and local builds](advanced-usage.md)
-- [Script maintenance guide](../../scripts/README_english.md)
+- [Script maintenance guide](../../scripts/README.md)
 
 ## Screenshots
 

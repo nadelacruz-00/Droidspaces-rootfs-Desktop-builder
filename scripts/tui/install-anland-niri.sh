@@ -27,7 +27,6 @@ readonly DESKTOP_CONFIG="${DROIDSPACES_DESKTOP_CONFIG:-/etc/droidspaces-desktop.
 WORK_DIR=""
 PREPARED_WORK_DIR="${ANLAND_NIRI_WORK_DIR:-}"
 PREPARED_ARCHIVE_FILE="${ANLAND_NIRI_ARCHIVE_FILE:-}"
-UI_LANG="en"
 TARGET="Arch Linux ARM"
 ARCHIVE_PREFIX="anland-niri-arch-"
 ARCHIVE_SUFFIX="-aarch64.tar.gz"
@@ -44,21 +43,12 @@ PACKAGE_VERSION=""
 ASSET_VERSION=""
 UNINSTALL=false
 
-detect_language() {
-    local locale_name="${LC_ALL:-${LC_MESSAGES:-${LANG:-C}}}"
-    locale_name="${locale_name,,}"
-    [[ "$locale_name" == zh* ]] && UI_LANG="zh"
-    return 0
-}
+msg() { printf '%s' "$1"; }
 
-msg() {
-    if [[ "$UI_LANG" == zh ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi
-}
-
-log() { printf '[anland-niri] %s\n' "$(msg "$1" "$2")"; }
+log() { printf '[anland-niri] %s\n' "$(msg "$1")"; }
 
 die() {
-    printf '[anland-niri] %s: %s\n' "$(msg '错误' 'Error')" "$(msg "$1" "$2")" >&2
+    printf '[anland-niri] %s: %s\n' "$(msg 'Error')" "$(msg "$1")" >&2
     exit 1
 }
 
@@ -66,11 +56,11 @@ record_component_version() {
     local version="$1" state_file="$COMPONENT_STATE_DIR/niri.version" temporary_file
     [[ "$version" =~ ^[0-9A-Za-z][0-9A-Za-z.+:~_-]{0,63}$ ]] || return 0
     mkdir -p -- "$COMPONENT_STATE_DIR" || {
-        log "无法记录 Niri 版本。" "Could not record the Niri version."
+        log "Could not record the Niri version."
         return 0
     }
     temporary_file="$(mktemp "$state_file.tmp.XXXXXXXX")" || {
-        log "无法记录 Niri 版本。" "Could not record the Niri version."
+        log "Could not record the Niri version."
         return 0
     }
     if printf '%s\n' "$version" > "$temporary_file" && chmod 0644 "$temporary_file" && \
@@ -78,7 +68,7 @@ record_component_version() {
         return 0
     fi
     rm -f -- "$temporary_file" || true
-    log "无法记录 Niri 版本。" "Could not record the Niri version."
+    log "Could not record the Niri version."
 }
 
 parse_arguments() {
@@ -91,20 +81,19 @@ parse_arguments() {
             --uninstall) UNINSTALL=true ;;
             -h|--help)
                 cat <<EOF_HELP
-用法: $0 [选项]
+Usage: $0 [options]
 
-安装或卸载 Anland Niri 及其配套 Xwayland Arch ARM 软件包。
+Install or uninstall Anland Niri and its matching Xwayland Arch ARM packages.
 
-  -1, --1          使用 GitHub
-  -2, --2          使用 gh-proxy.com
-  -3, --3          使用 CNB
-  --uninstall      卸载 Niri；有 Anland KDE 时保留其共用的 Xwayland
-  -h, --help       显示帮助
+  -1, --1          Use GitHub
+  -2, --2          Use gh-proxy.com
+  -3, --3          Use CNB
+  --uninstall      Uninstall Niri; keeps the shared Xwayland when Anland KDE is present
+  -h, --help       Show this help
 EOF_HELP
                 exit 0
                 ;;
-            *) die "不支持的参数：${argument}。可用参数为 -1/--1、-2/--2、-3/--3、--uninstall。" \
-                "Unsupported argument: ${argument}. Valid arguments are -1/--1, -2/--2, -3/--3, and --uninstall." ;;
+            *) die "Unsupported argument: ${argument}. Valid arguments are -1/--1, -2/--2, -3/--3, and --uninstall." ;;
         esac
     done
 }
@@ -116,8 +105,8 @@ trap cleanup EXIT
 
 require_root() {
     (( EUID == 0 )) && return 0
-    command -v sudo >/dev/null 2>&1 || die "请使用 root 账户运行此脚本。" "Please run this script as root."
-    log "正在通过 sudo 重新运行安装程序..." "Restarting the installer with sudo..."
+    command -v sudo >/dev/null 2>&1 || die "Please run this script as root."
+    log "Restarting the installer with sudo..."
     local script_path="${BASH_SOURCE[0]}" status
     [[ "$script_path" = /* ]] || script_path="$PWD/$script_path"
     if sudo env \
@@ -141,8 +130,7 @@ parse_desktop_config() {
     CONFIGURED_DISPLAY_BACKEND=""
     if [[ ! -e "$DESKTOP_CONFIG" && ! -L "$DESKTOP_CONFIG" ]]; then return 0; fi
     [[ -f "$DESKTOP_CONFIG" && ! -L "$DESKTOP_CONFIG" && -r "$DESKTOP_CONFIG" ]] || \
-        die "桌面配置不是可安全读取的普通文件：${DESKTOP_CONFIG}。" \
-            "The desktop configuration is not a safely readable regular file: ${DESKTOP_CONFIG}."
+        die "The desktop configuration is not a safely readable regular file: ${DESKTOP_CONFIG}."
     while IFS= read -r line || [[ -n "$line" ]]; do
         case "$line" in
             DESKTOP=*) CONFIGURED_DESKTOP="${line#DESKTOP=}"; ((desktop_lines += 1)) ;;
@@ -152,15 +140,14 @@ parse_desktop_config() {
     if ((desktop_lines != 1 || backend_lines > 1)) || \
         [[ ! "$CONFIGURED_DESKTOP" =~ ^(none|[a-z][a-z0-9-]*)$ ]] || \
         { ((backend_lines == 1)) && [[ ! "$CONFIGURED_DISPLAY_BACKEND" =~ ^[a-z][a-z0-9-]*$ ]]; }; then
-        die "桌面配置格式无效，未覆盖原文件。" "The desktop configuration is invalid; the original file was not overwritten."
+        die "The desktop configuration is invalid; the original file was not overwritten."
     fi
 }
 
 preflight_desktop_config() {
     parse_desktop_config
     if [[ "$CONFIGURED_DESKTOP" == niri && "$CONFIGURED_DISPLAY_BACKEND" == x11 ]]; then
-        die "当前已选择 Niri，但 DISPLAY_BACKEND=x11；Niri 需要 Anland Wayland，请先修复桌面配置。" \
-            "Niri is selected with DISPLAY_BACKEND=x11; Niri requires Anland Wayland. Fix the desktop configuration first."
+        die "Niri is selected with DISPLAY_BACKEND=x11; Niri requires Anland Wayland. Fix the desktop configuration first."
     fi
 }
 
@@ -168,24 +155,22 @@ update_desktop_config() {
     local config_dir temporary_file
     parse_desktop_config
     if [[ "$CONFIGURED_DESKTOP" == niri && "$CONFIGURED_DISPLAY_BACKEND" == anland-wayland ]]; then
-        log "保留现有桌面配置：DESKTOP=niri，DISPLAY_BACKEND=anland-wayland。" \
-            "Keeping the existing desktop configuration: DESKTOP=niri, DISPLAY_BACKEND=anland-wayland."
+        log "Keeping the existing desktop configuration: DESKTOP=niri, DISPLAY_BACKEND=anland-wayland."
         return 0
     fi
     if [[ "$CONFIGURED_DESKTOP" != none && "$CONFIGURED_DESKTOP" != niri ]]; then
-        log "保留现有桌面配置：DESKTOP=${CONFIGURED_DESKTOP}，DISPLAY_BACKEND=${CONFIGURED_DISPLAY_BACKEND:-未设置}。" \
-            "Keeping the existing desktop configuration: DESKTOP=${CONFIGURED_DESKTOP}, DISPLAY_BACKEND=${CONFIGURED_DISPLAY_BACKEND:-unset}."
+        log "Keeping the existing desktop configuration: DESKTOP=${CONFIGURED_DESKTOP}, DISPLAY_BACKEND=${CONFIGURED_DISPLAY_BACKEND:-unset}."
         return 0
     fi
     config_dir="$(dirname -- "$DESKTOP_CONFIG")"
-    install -d -m 0755 -- "$config_dir" || die "无法创建桌面配置目录。" "Could not create the desktop configuration directory."
+    install -d -m 0755 -- "$config_dir" || die "Could not create the desktop configuration directory."
     temporary_file="$(mktemp "$config_dir/.droidspaces-desktop.conf.tmp.XXXXXXXX")" || \
-        die "无法创建临时桌面配置。" "Could not create a temporary desktop configuration."
+        die "Could not create a temporary desktop configuration."
     if [[ ! -e "$DESKTOP_CONFIG" && ! -L "$DESKTOP_CONFIG" ]]; then
         if ! printf 'DESKTOP=niri\nDISPLAY_BACKEND=anland-wayland\n' > "$temporary_file" || \
             ! chmod 0644 "$temporary_file" || ! mv -f -- "$temporary_file" "$DESKTOP_CONFIG"; then
             rm -f -- "$temporary_file" || true
-            die "无法创建桌面配置。" "Could not create the desktop configuration."
+            die "Could not create the desktop configuration."
         fi
     else
         if ! awk '
@@ -198,11 +183,10 @@ update_desktop_config() {
             ! chown --reference="$DESKTOP_CONFIG" "$temporary_file" || \
             ! mv -f -- "$temporary_file" "$DESKTOP_CONFIG"; then
             rm -f -- "$temporary_file" || true
-            die "无法更新桌面配置。" "Could not update the desktop configuration."
+            die "Could not update the desktop configuration."
         fi
     fi
-    log "已将桌面配置更新为 DESKTOP=niri、DISPLAY_BACKEND=anland-wayland。" \
-        "Updated desktop configuration to DESKTOP=niri and DISPLAY_BACKEND=anland-wayland."
+    log "Updated desktop configuration to DESKTOP=niri and DISPLAY_BACKEND=anland-wayland."
 }
 
 configure_niri_environment() {
@@ -212,10 +196,8 @@ configure_niri_environment() {
     parse_desktop_config
     [[ "$CONFIGURED_DESKTOP:$CONFIGURED_DISPLAY_BACKEND" == niri:anland-wayland ]] || return 0
     [[ -x "$profile" ]] || die \
-        "找不到 Niri 桌面配置脚本：${profile}。" \
         "The Niri desktop profile was not found: ${profile}."
     ROOTFS_DIR= "$profile" configure-environment anland-wayland || die \
-        "无法写入 Niri 环境变量。" \
         "Could not configure the Niri environment."
 }
 
@@ -225,7 +207,7 @@ reset_niri_desktop_config() {
     [[ "$CONFIGURED_DESKTOP" == niri ]] || return 0
     config_dir="$(dirname -- "$DESKTOP_CONFIG")"
     temporary_file="$(mktemp "$config_dir/.droidspaces-desktop.conf.tmp.XXXXXXXX")" || \
-        die "无法创建桌面配置临时文件。" "Could not create a temporary desktop configuration."
+        die "Could not create a temporary desktop configuration."
     if ! awk '
         /^DESKTOP=/ { print "DESKTOP=none"; next }
         /^DISPLAY_BACKEND=/ { print "DISPLAY_BACKEND=x11"; backend = 1; next }
@@ -236,39 +218,37 @@ reset_niri_desktop_config() {
         ! chown --reference="$DESKTOP_CONFIG" "$temporary_file" || \
         ! mv -f -- "$temporary_file" "$DESKTOP_CONFIG"; then
         rm -f -- "$temporary_file" || true
-        die "无法将卸载后的桌面配置切回 DESKTOP=none。" \
-            "Could not reset the desktop configuration to DESKTOP=none after uninstall."
+        die "Could not reset the desktop configuration to DESKTOP=none after uninstall."
     fi
-    log "已将桌面配置切回 DESKTOP=none、DISPLAY_BACKEND=x11。" \
-        "Reset desktop configuration to DESKTOP=none and DISPLAY_BACKEND=x11."
+    log "Reset desktop configuration to DESKTOP=none and DISPLAY_BACKEND=x11."
 }
 
 check_target() {
-    [[ -r /etc/os-release ]] || die "无法读取 /etc/os-release。" "Unable to read /etc/os-release."
+    [[ -r /etc/os-release ]] || die "Unable to read /etc/os-release."
     # shellcheck disable=SC1091
     source /etc/os-release
     case "${ID,,}" in
         arch|archarm|archlinux) ;;
-        *) die "Niri 预编译包目前仅支持 Arch Linux ARM。" "The Niri prebuilt package currently supports Arch Linux ARM only." ;;
+        *) die "The Niri prebuilt package currently supports Arch Linux ARM only." ;;
     esac
     case "$(uname -m)" in
         aarch64|arm64) ;;
-        *) die "预编译包仅支持 ARM64/aarch64。" "The prebuilt package supports ARM64/aarch64 only." ;;
+        *) die "The prebuilt package supports ARM64/aarch64 only." ;;
     esac
-    command -v pacman >/dev/null 2>&1 || die "未找到 pacman。" "pacman was not found."
+    command -v pacman >/dev/null 2>&1 || die "pacman was not found."
 }
 
 validate_repository() {
     [[ "$RELEASE_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || \
-        die "Release 仓库必须是 owner/repository 格式。" "The Release repository must use the owner/repository format."
+        die "The Release repository must use the owner/repository format."
 }
 
 resolve_release_tag() {
     validate_repository
     [[ -n "$RELEASE_TAG" ]] || RELEASE_TAG="$ROLLING_RELEASE_TAG"
     [[ "$RELEASE_TAG" == "$ROLLING_RELEASE_TAG" ]] || \
-        die "Release tag 只能是 ${ROLLING_RELEASE_TAG}。" "The Release tag must be ${ROLLING_RELEASE_TAG}."
-    log "使用固定滚动 Release：${RELEASE_TAG}" "Using rolling Release: ${RELEASE_TAG}"
+        die "The Release tag must be ${ROLLING_RELEASE_TAG}."
+    log "Using rolling Release: ${RELEASE_TAG}"
 }
 
 download_file() {
@@ -278,7 +258,7 @@ download_file() {
     elif command -v wget >/dev/null 2>&1; then
         wget --tries=3 --timeout=20 --waitretry=3 --retry-connrefused -O "$destination" "$url"
     else
-        die "未找到 curl 或 wget。" "Neither curl nor wget was found."
+        die "Neither curl nor wget was found."
     fi
 }
 
@@ -289,7 +269,7 @@ download_stdout() {
     elif command -v wget >/dev/null 2>&1; then
         wget -q --tries=3 --timeout=20 --waitretry=3 --retry-connrefused -O - "$url"
     else
-        die "未找到 curl 或 wget。" "Neither curl nor wget was found."
+        die "Neither curl nor wget was found."
     fi
 }
 
@@ -298,7 +278,7 @@ release_download_base() {
         1) printf '%s/%s/releases/download/%s' "$GITHUB_RELEASE_URL" "$RELEASE_REPOSITORY" "$RELEASE_TAG" ;;
         2) printf '%s/%s/releases/download/%s' "$GH_PROXY_RELEASE_URL" "$RELEASE_REPOSITORY" "$RELEASE_TAG" ;;
         3) printf '%s/%s/-/releases/download/%s' "$CNB_RELEASE_URL" "$RELEASE_REPOSITORY" "$RELEASE_TAG" ;;
-        *) die "下载源选择无效。" "The selected download source is invalid." ;;
+        *) die "The selected download source is invalid." ;;
     esac
 }
 
@@ -325,42 +305,39 @@ probe_download_source() {
         else status=$?; fi
     elif command -v wget >/dev/null 2>&1; then
         if timeout "$SOURCE_PROBE_TIMEOUT_SECONDS" wget -q --tries=1 --timeout="$SOURCE_PROBE_TIMEOUT_SECONDS" -O /dev/null "$url"; then
-            printf '%s' "$(msg '可用' 'available')"; return
+            printf '%s' "$(msg 'available')"; return
         else status=$?; fi
     else
-        die "未找到 curl 或 wget。" "Neither curl nor wget was found."
+        die "Neither curl nor wget was found."
     fi
-    if ((status == 28 || status == 124)); then printf '%s' "$(msg '超时' 'timeout')"; else printf '%s' "$(msg '不可用' 'unavailable')"; fi
+    if ((status == 28 || status == 124)); then printf '%s' "$(msg 'timeout')"; else printf '%s' "$(msg 'unavailable')"; fi
 }
 
 select_download_source() {
     local source latency choice recommendation
     if [[ "$SKIP_SOURCE_PROBE" == true ]]; then
-        log "已按参数选择 $(download_source_name "$DOWNLOAD_SOURCE")，跳过延迟测试。" \
-            "Selected $(download_source_name "$DOWNLOAD_SOURCE") from the command line; skipping latency checks."
+        log "Selected $(download_source_name "$DOWNLOAD_SOURCE") from the command line; skipping latency checks."
         return
     fi
-    log "正在测试下载源延迟（达到 ${SOURCE_PROBE_TIMEOUT_SECONDS} 秒视为超时）..." \
-        "Testing download-source latency (timeouts at ${SOURCE_PROBE_TIMEOUT_SECONDS} seconds)..."
+    log "Testing download-source latency (timeouts at ${SOURCE_PROBE_TIMEOUT_SECONDS} seconds)..."
     for source in 1 2 3; do
         latency="$(probe_download_source "$source")"
         recommendation=""
-        [[ "$source" == 3 ]] && recommendation="$(msg '（推荐）' ' (recommended)')"
+        [[ "$source" == 3 ]] && recommendation="$(msg ' (recommended)')"
         printf '%s. %s%s %s: %s\n' "$source" "$(download_source_name "$source")" "$recommendation" \
-            "$(msg '延迟' 'latency')" "$latency"
+            "$(msg 'latency')" "$latency"
     done
     while :; do
-        printf '%s' "$(msg '请输入下载源编号 [1-3]: ' 'Choose a download source [1-3]: ')"
-        IFS= read -r choice || die "无法读取下载源选择。" "Unable to read a download-source choice."
-        case "$choice" in 1|2|3) DOWNLOAD_SOURCE="$choice"; return ;; *) log "请输入 1、2 或 3。" "Enter 1, 2, or 3." ;; esac
+        printf '%s' "$(msg 'Choose a download source [1-3]: ')"
+        IFS= read -r choice || die "Unable to read a download-source choice."
+        case "$choice" in 1|2|3) DOWNLOAD_SOURCE="$choice"; return ;; *) log "Enter 1, 2, or 3." ;; esac
     done
 }
 
 fetch_official_release_metadata() {
     local api_url="${GITHUB_API_URL}/repos/${RELEASE_REPOSITORY}/releases/tags/${RELEASE_TAG}"
     OFFICIAL_RELEASE_METADATA="$(download_stdout "$api_url")" || {
-        log "无法获取 GitHub 官方 SHA-256 校验值，拒绝使用第三方镜像包。" \
-            "Could not obtain GitHub's official SHA-256 digest; refusing the third-party mirror package."
+        log "Could not obtain GitHub's official SHA-256 digest; refusing the third-party mirror package."
         return 1
     }
 }
@@ -380,12 +357,12 @@ release_asset_sha256() {
 resolve_official_digest() {
     local name="$1" result_name="$2"
     [[ "$DOWNLOAD_SOURCE" == 1 ]] && return 0
-    command -v jq >/dev/null 2>&1 || die "第三方镜像校验需要 jq。" "jq is required to verify third-party mirrors."
-    command -v sha256sum >/dev/null 2>&1 || die "第三方镜像校验需要 sha256sum。" "sha256sum is required to verify third-party mirrors."
+    command -v jq >/dev/null 2>&1 || die "jq is required to verify third-party mirrors."
+    command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required to verify third-party mirrors."
     [[ -n "$OFFICIAL_RELEASE_METADATA" ]] || fetch_official_release_metadata || return 1
     local digest
     digest="$(release_asset_sha256 "$name")" || {
-        log "GitHub Release 未提供 ${name} 的有效 SHA-256。" "GitHub Release has no valid SHA-256 for ${name}."
+        log "GitHub Release has no valid SHA-256 for ${name}."
         return 1
     }
     if [[ "$result_name" == manifest ]]; then EXPECTED_MANIFEST_SHA256="$digest"; else EXPECTED_ARCHIVE_SHA256="$digest"; fi
@@ -409,14 +386,14 @@ prepare_cnb_checksums() {
     size="$(stat -c '%s' "$CHECKSUMS_FILE")" || return 1
     [[ "$size" =~ ^[0-9]+$ && "$size" -gt 0 && "$size" -le "$MAX_CHECKSUMS_BYTES" ]] || return 1
     EXPECTED_MANIFEST_SHA256="$(checksum_sha256_for_asset "$CHECKSUMS_FILE" "$MANIFEST_NAME")" || {
-        log "CNB SHA256SUMS 缺少 manifest 的唯一校验值。" "CNB SHA256SUMS has no unique manifest digest."
+        log "CNB SHA256SUMS has no unique manifest digest."
         return 1
     }
 }
 
 resolve_cnb_archive_digest() {
     EXPECTED_ARCHIVE_SHA256="$(checksum_sha256_for_asset "$CHECKSUMS_FILE" "$ARCHIVE_NAME")" || {
-        log "CNB SHA256SUMS 缺少 ${ARCHIVE_NAME} 的唯一校验值。" "CNB SHA256SUMS has no unique digest for ${ARCHIVE_NAME}."
+        log "CNB SHA256SUMS has no unique digest for ${ARCHIVE_NAME}."
         return 1
     }
 }
@@ -425,7 +402,7 @@ validate_digest() {
     local path="$1" expected="$2" name="$3" actual
     actual="$(sha256sum "$path" | awk '{print $1}')"
     [[ "$actual" =~ ^[0-9a-f]{64}$ && "$actual" == "$expected" ]] || {
-        log "${name} 未通过 SHA-256 校验。" "${name} failed SHA-256 verification."
+        log "${name} failed SHA-256 verification."
         return 1
     }
 }
@@ -518,10 +495,10 @@ require_runtime_dependencies() {
     local command_name
     for command_name in awk find grep mktemp pacman realpath sed sort stat tar sha256sum; do
         command -v "$command_name" >/dev/null 2>&1 || \
-            die "缺少运行安装器所需的命令：${command_name}。" "The installer requires the missing command: ${command_name}."
+            die "The installer requires the missing command: ${command_name}."
     done
     command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || \
-        die "未找到 curl 或 wget。" "Neither curl nor wget was found."
+        die "Neither curl nor wget was found."
 }
 
 is_anland_kde_installed() {
@@ -532,8 +509,7 @@ is_anland_kde_installed() {
 
 refuse_kde_conflict() {
     if is_anland_kde_installed; then
-        die "检测到 Anland KDE。Niri 与 KDE 共用 patched xorg-xwayland；为避免覆盖或错误恢复，请先卸载 Anland KDE。" \
-            "Anland KDE is installed. Niri and KDE share patched xorg-xwayland; uninstall Anland KDE first to avoid replacing or restoring the wrong package."
+        die "Anland KDE is installed. Niri and KDE share patched xorg-xwayland; uninstall Anland KDE first to avoid replacing or restoring the wrong package."
     fi
     return 0
 }
@@ -552,27 +528,26 @@ download_packages_once() {
         cnb_manifest_sha256="$(checksum_sha256_for_asset "$CHECKSUMS_FILE" "$MANIFEST_NAME")" || return 1
         resolve_official_digest "$MANIFEST_NAME" manifest || return 1
         [[ "$EXPECTED_MANIFEST_SHA256" == "$cnb_manifest_sha256" ]] || {
-            log "CNB manifest 校验值与 GitHub 官方摘要不一致。" "The CNB manifest digest does not match GitHub's official digest."
+            log "The CNB manifest digest does not match GitHub's official digest."
             return 1
         }
     else
         resolve_official_digest "$MANIFEST_NAME" manifest || return 1
     fi
-    log "正在从 $(download_source_name "$DOWNLOAD_SOURCE") 下载 ${TARGET} Anland Niri 包..." \
-        "Downloading the ${TARGET} Anland Niri packages from $(download_source_name "$DOWNLOAD_SOURCE")..."
+    log "Downloading the ${TARGET} Anland Niri packages from $(download_source_name "$DOWNLOAD_SOURCE")..."
     download_file "$base_url/$MANIFEST_NAME" "$manifest_file" || return 1
     manifest_size="$(stat -c '%s' "$manifest_file")" || return 1
     [[ "$manifest_size" =~ ^[0-9]+$ && "$manifest_size" -gt 0 && "$manifest_size" -le "$MAX_MANIFEST_BYTES" ]] || return 1
     [[ -z "$EXPECTED_MANIFEST_SHA256" ]] || validate_digest "$manifest_file" "$EXPECTED_MANIFEST_SHA256" "$MANIFEST_NAME" || return 1
     resolve_manifest_archive "$manifest_file" || {
-        log "Release 清单中没有有效的 Arch ARM 归档。" "The Release manifest has no valid Arch ARM archive."
+        log "The Release manifest has no valid Arch ARM archive."
         return 1
     }
     if [[ "$DOWNLOAD_SOURCE" == 3 ]]; then
         cnb_archive_sha256="$(checksum_sha256_for_asset "$CHECKSUMS_FILE" "$ARCHIVE_NAME")" || return 1
         resolve_official_digest "$ARCHIVE_NAME" archive || return 1
         [[ "$EXPECTED_ARCHIVE_SHA256" == "$cnb_archive_sha256" ]] || {
-            log "CNB 归档校验值与 GitHub 官方摘要不一致。" "The CNB archive digest does not match GitHub's official digest."
+            log "The CNB archive digest does not match GitHub's official digest."
             return 1
         }
     else
@@ -582,14 +557,13 @@ download_packages_once() {
     download_file "$base_url/$ARCHIVE_NAME" "$ARCHIVE_FILE" || return 1
     [[ -z "$EXPECTED_ARCHIVE_SHA256" ]] || validate_digest "$ARCHIVE_FILE" "$EXPECTED_ARCHIVE_SHA256" "$ARCHIVE_NAME" || return 1
     validate_archive_contents "$ARCHIVE_FILE" || {
-        log "下载归档的结构无效或不安全。" "The downloaded archive is malformed or unsafe."
+        log "The downloaded archive is malformed or unsafe."
         return 1
     }
     tar --no-same-owner --no-same-permissions -xzf "$ARCHIVE_FILE" -C "$WORK_DIR" || return 1
     PACKAGE_DIR="$WORK_DIR/anland-niri-packages/arch"
     validate_package_set && validate_build_info || {
-        log "归档中的 Niri/Xwayland 软件包或构建信息校验失败。" \
-            "Niri/Xwayland packages or build information in the archive failed validation."
+        log "Niri/Xwayland packages or build information in the archive failed validation."
         return 1
     }
 }
@@ -605,32 +579,31 @@ download_packages() {
         fi
         if download_packages_once; then return 0; fi
         if ((attempt < 3)); then
-            log "Release 正在更新或网络暂时失败，准备重试（第 ${attempt} 次）。" \
-                "The Release is updating or the network failed; retrying after attempt ${attempt}."
+            log "The Release is updating or the network failed; retrying after attempt ${attempt}."
             sleep "$attempt"
         fi
     done
-    die "无法稳定获取 Anland Niri 软件包，请稍后重试。" "Unable to consistently download the Anland Niri packages; please retry later."
+    die "Unable to consistently download the Anland Niri packages; please retry later."
 }
 
 use_prepared_packages() {
     local prepared_work_dir prepared_archive_file
-    prepared_work_dir="$(realpath -e "$PREPARED_WORK_DIR")" || die "预下载目录无效。" "The pre-downloaded directory is invalid."
-    prepared_archive_file="$(realpath -e "$PREPARED_ARCHIVE_FILE")" || die "预下载归档无效。" "The pre-downloaded archive is invalid."
+    prepared_work_dir="$(realpath -e "$PREPARED_WORK_DIR")" || die "The pre-downloaded directory is invalid."
+    prepared_archive_file="$(realpath -e "$PREPARED_ARCHIVE_FILE")" || die "The pre-downloaded archive is invalid."
     [[ "$prepared_work_dir" =~ ^/tmp/anland-niri\.[A-Za-z0-9]+$ && "$prepared_archive_file" == "$prepared_work_dir/"* ]] || \
-        die "预下载归档路径无效。" "The pre-downloaded archive path is invalid."
-    [[ -d "$prepared_work_dir" && -f "$prepared_archive_file" ]] || die "预下载归档不存在。" "The pre-downloaded archive does not exist."
+        die "The pre-downloaded archive path is invalid."
+    [[ -d "$prepared_work_dir" && -f "$prepared_archive_file" ]] || die "The pre-downloaded archive does not exist."
     WORK_DIR="$prepared_work_dir"
     ARCHIVE_FILE="$prepared_archive_file"
     ARCHIVE_NAME="${ARCHIVE_FILE##*/}"
-    case "$ARCHIVE_NAME" in "${ARCHIVE_PREFIX}"*"${ARCHIVE_SUFFIX}") ;; *) die "归档与当前系统不匹配。" "The archive does not match this system." ;; esac
+    case "$ARCHIVE_NAME" in "${ARCHIVE_PREFIX}"*"${ARCHIVE_SUFFIX}") ;; *) die "The archive does not match this system." ;; esac
     ASSET_VERSION="${ARCHIVE_NAME#"$ARCHIVE_PREFIX"}"
     ASSET_VERSION="${ASSET_VERSION%"$ARCHIVE_SUFFIX"}"
-    [[ "$ASSET_VERSION" =~ ^[0-9A-Za-z][0-9A-Za-z.+~_-]{0,63}$ ]] || die "归档版本无效。" "The archive version is invalid."
-    validate_archive_contents "$ARCHIVE_FILE" || die "预下载归档结构不安全。" "The pre-downloaded archive is unsafe."
-    tar --no-same-owner --no-same-permissions -xzf "$ARCHIVE_FILE" -C "$WORK_DIR" || die "无法解压预下载归档。" "Could not extract the pre-downloaded archive."
+    [[ "$ASSET_VERSION" =~ ^[0-9A-Za-z][0-9A-Za-z.+~_-]{0,63}$ ]] || die "The archive version is invalid."
+    validate_archive_contents "$ARCHIVE_FILE" || die "The pre-downloaded archive is unsafe."
+    tar --no-same-owner --no-same-permissions -xzf "$ARCHIVE_FILE" -C "$WORK_DIR" || die "Could not extract the pre-downloaded archive."
     PACKAGE_DIR="$WORK_DIR/anland-niri-packages/arch"
-    validate_package_set && validate_build_info || die "预下载软件包校验失败。" "The pre-downloaded packages failed validation."
+    validate_package_set && validate_build_info || die "The pre-downloaded packages failed validation."
 }
 
 installed_package_version() {
@@ -640,9 +613,9 @@ installed_package_version() {
 add_package_holds() {
     local mode="${1:-all}" temporary_file hold_line
     [[ "$mode" == xwayland-only ]] && hold_line="IgnorePkg = xorg-xwayland" || hold_line="IgnorePkg = niri-anland xorg-xwayland"
-    [[ -f "$PACMAN_CONF" && ! -L "$PACMAN_CONF" ]] || die "找不到安全的 pacman.conf。" "A safe pacman.conf was not found."
-    grep -qE '^\[options\][[:space:]]*$' "$PACMAN_CONF" || die "pacman.conf 缺少 [options] 段。" "pacman.conf has no [options] section."
-    temporary_file="$(mktemp "${PACMAN_CONF}.tmp.XXXXXXXX")" || die "无法创建 pacman.conf 临时文件。" "Could not create a temporary pacman.conf."
+    [[ -f "$PACMAN_CONF" && ! -L "$PACMAN_CONF" ]] || die "A safe pacman.conf was not found."
+    grep -qE '^\[options\][[:space:]]*$' "$PACMAN_CONF" || die "pacman.conf has no [options] section."
+    temporary_file="$(mktemp "${PACMAN_CONF}.tmp.XXXXXXXX")" || die "Could not create a temporary pacman.conf."
     if ! awk -v begin="$PACMAN_HOLD_BEGIN" -v end="$PACMAN_HOLD_END" -v line="$hold_line" '
         function block() { print begin; print line; print end }
         $0 == begin { inside = 1; found = 1; next }
@@ -661,12 +634,12 @@ add_package_holds() {
         }
     ' "$PACMAN_CONF" > "$temporary_file"; then
         rm -f -- "$temporary_file"
-        die "无法在 pacman.conf 的 [options] 中加入 hold。" "Could not add the package hold in pacman.conf [options]."
+        die "Could not add the package hold in pacman.conf [options]."
     fi
     if ! chmod --reference="$PACMAN_CONF" "$temporary_file" || ! chown --reference="$PACMAN_CONF" "$temporary_file" || \
         ! mv -f -- "$temporary_file" "$PACMAN_CONF"; then
         rm -f -- "$temporary_file"
-        die "无法锁定 Niri 与 patched Xwayland 软件包。" "Could not hold Niri and patched Xwayland packages."
+        die "Could not hold Niri and patched Xwayland packages."
     fi
 }
 
@@ -674,8 +647,8 @@ remove_package_holds() {
     local temporary_file
     [[ -f "$PACMAN_CONF" && ! -L "$PACMAN_CONF" ]] || return 0
     grep -Fqx "$PACMAN_HOLD_BEGIN" "$PACMAN_CONF" || return 0
-    grep -Fqx "$PACMAN_HOLD_END" "$PACMAN_CONF" || die "Anland Niri 的 pacman hold 标记不完整。" "The Anland Niri pacman hold markers are incomplete."
-    temporary_file="$(mktemp "${PACMAN_CONF}.tmp.XXXXXXXX")" || die "无法创建 pacman.conf 临时文件。" "Could not create a temporary pacman.conf."
+    grep -Fqx "$PACMAN_HOLD_END" "$PACMAN_CONF" || die "The Anland Niri pacman hold markers are incomplete."
+    temporary_file="$(mktemp "${PACMAN_CONF}.tmp.XXXXXXXX")" || die "Could not create a temporary pacman.conf."
     if ! awk -v begin="$PACMAN_HOLD_BEGIN" -v end="$PACMAN_HOLD_END" '
         $0 == begin { inside = 1; next }
         $0 == end { inside = 0; next }
@@ -684,12 +657,12 @@ remove_package_holds() {
         END { if (inside) exit 1 }
     ' "$PACMAN_CONF" > "$temporary_file"; then
         rm -f -- "$temporary_file"
-        die "无法安全移除 Niri pacman hold。" "Could not safely remove the Niri pacman hold."
+        die "Could not safely remove the Niri pacman hold."
     fi
     if ! chmod --reference="$PACMAN_CONF" "$temporary_file" || ! chown --reference="$PACMAN_CONF" "$temporary_file" || \
         ! mv -f -- "$temporary_file" "$PACMAN_CONF"; then
         rm -f -- "$temporary_file"
-        die "无法更新 pacman.conf。" "Could not update pacman.conf."
+        die "Could not update pacman.conf."
     fi
 }
 
@@ -697,12 +670,12 @@ install_packages() {
     local pacman_conf installed_version
     local -a files=()
     mapfile -t files < <(find "$PACKAGE_DIR" -maxdepth 1 -type f \( -name '*.pkg.tar.zst' -o -name '*.pkg.tar.xz' \) -print | sort)
-    ((${#files[@]} == 2)) || die "安装包集合不完整。" "The package set is incomplete."
+    ((${#files[@]} == 2)) || die "The package set is incomplete."
     # pacman -U checks dependencies but does not fetch missing repository packages.
     if ! pacman -S --noconfirm --needed \
         glibc gcc-libs mesa libdrm libinput seatd libdisplay-info libxkbcommon \
         pixman wayland pango cairo pipewire libpipewire systemd-libs xwayland-satellite; then
-        die "无法安装 Niri 所需的 Arch 依赖包。" "Could not install the Arch dependencies required by Niri."
+        die "Could not install the Arch dependencies required by Niri."
     fi
     pacman_conf="$(mktemp -t anland-niri-pacman.XXXXXXXX)"
     cp -p -- "$PACMAN_CONF" "$pacman_conf"
@@ -712,54 +685,50 @@ install_packages() {
         sed -i '/^\[options\][[:space:]]*$/a LocalFileSigLevel = Optional' "$pacman_conf"
     else
         rm -f -- "$pacman_conf"
-        die "pacman.conf 缺少 [options] 段。" "pacman.conf has no [options] section."
+        die "pacman.conf has no [options] section."
     fi
     # Hold before replacing either shared package. If package installation or
     # later verification fails, the patched Xwayland stays protected.
     add_package_holds all
     if ! pacman --config "$pacman_conf" -U --noconfirm "${files[@]}"; then
         rm -f -- "$pacman_conf"
-        die "Arch 软件包安装失败；patched Xwayland 仍保持锁定。" "Arch package installation failed; patched Xwayland remains held."
+        die "Arch package installation failed; patched Xwayland remains held."
     fi
     rm -f -- "$pacman_conf"
-    pacman -Q niri-anland >/dev/null || die "pacman 未安装 niri-anland。" "pacman did not install niri-anland."
-    pacman -Q xorg-xwayland >/dev/null || die "pacman 未安装 patched xorg-xwayland。" "pacman did not install patched xorg-xwayland."
+    pacman -Q niri-anland >/dev/null || die "pacman did not install niri-anland."
+    pacman -Q xorg-xwayland >/dev/null || die "pacman did not install patched xorg-xwayland."
     installed_version="$(installed_package_version || true)"
     [[ "$installed_version" == "$PACKAGE_VERSION" ]] || die \
-        "安装后的 Niri 版本与下载包不一致（期望 ${PACKAGE_VERSION}，实际 ${installed_version:-unknown}）。" \
         "The installed Niri version does not match the downloaded package (expected ${PACKAGE_VERSION}, got ${installed_version:-unknown})."
 }
 
 uninstall_packages() {
-    command -v pacman >/dev/null 2>&1 || die "未找到 pacman。" "pacman was not found."
+    command -v pacman >/dev/null 2>&1 || die "pacman was not found."
     local kde_present=false
     if is_anland_kde_installed; then kde_present=true; fi
     if pacman -Q niri-anland >/dev/null 2>&1; then
-        pacman -R --noconfirm niri-anland || die "卸载 niri-anland 失败。" "Failed to uninstall niri-anland."
+        pacman -R --noconfirm niri-anland || die "Failed to uninstall niri-anland."
     else
-        log "没有已安装的 niri-anland 包。" "No installed niri-anland package was found."
+        log "No installed niri-anland package was found."
     fi
     remove_package_holds
     if [[ "$kde_present" == true ]]; then
-        log "保留 Anland KDE 共用的 patched xorg-xwayland。" \
-            "Keeping patched xorg-xwayland because Anland KDE also uses it."
+        log "Keeping patched xorg-xwayland because Anland KDE also uses it."
     elif pacman -Q xorg-xwayland >/dev/null 2>&1; then
-        log "正在恢复发行版 Xwayland..." "Restoring distribution Xwayland..."
+        log "Restoring distribution Xwayland..."
         if ! pacman -S --noconfirm xorg-xwayland; then
             add_package_holds xwayland-only
             rm -f -- "$COMPONENT_STATE_DIR/niri.version"
-            die "恢复发行版 xorg-xwayland 失败；已重新锁定当前 Xwayland 以避免破坏图形会话。" \
-                "Failed to restore distribution xorg-xwayland; the current Xwayland was re-held to avoid breaking graphical sessions."
+            die "Failed to restore distribution xorg-xwayland; the current Xwayland was re-held to avoid breaking graphical sessions."
         fi
     fi
     reset_niri_desktop_config
     rm -f -- "$COMPONENT_STATE_DIR/niri.version"
     rmdir --ignore-fail-on-non-empty "$COMPONENT_STATE_DIR" 2>/dev/null || true
-    log "Anland Niri 已卸载；其他依赖未删除。" "Anland Niri was uninstalled; other dependencies were kept."
+    log "Anland Niri was uninstalled; other dependencies were kept."
 }
 
 main() {
-    detect_language
     parse_arguments "$@"
     check_target
     if [[ "$UNINSTALL" == true ]]; then
@@ -771,7 +740,7 @@ main() {
     resolve_release_tag
     if [[ -n "$PREPARED_WORK_DIR" || -n "$PREPARED_ARCHIVE_FILE" ]]; then
         [[ -n "$PREPARED_WORK_DIR" && -n "$PREPARED_ARCHIVE_FILE" ]] || \
-            die "预下载环境变量不完整。" "The pre-downloaded archive environment is incomplete."
+            die "The pre-downloaded archive environment is incomplete."
         use_prepared_packages
     else
         select_download_source
@@ -784,7 +753,7 @@ main() {
     record_component_version "$PACKAGE_VERSION"
     update_desktop_config
     configure_niri_environment
-    log "Anland Niri 安装完成（${PACKAGE_VERSION}）。" "Anland Niri installation completed (${PACKAGE_VERSION})."
+    log "Anland Niri installation completed (${PACKAGE_VERSION})."
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then main "$@"; fi

@@ -8,8 +8,8 @@ anland_package_family() {
     case "$desktop" in
         kde|kde-mobile) printf '%s\n' kde ;;
         gnome) printf '%s\n' gnome ;;
-        # Release 是 anland-session-packages / anland-session-manifest，
-        # 正好是 anland-${family}-packages / anland-${family}-manifest 的形状。
+        # The release is anland-session-packages / anland-session-manifest,
+        # exactly the anland-${family}-packages / anland-${family}-manifest shape.
         anland-next) printf '%s\n' session ;;
         niri) printf '%s\n' niri ;;
         *) return 1 ;;
@@ -24,7 +24,7 @@ anland_prepare_release() {
 
     case "$family" in kde|gnome|session|niri) ;; *) return 1 ;; esac
     [[ "$repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || {
-        echo "错误：Wayland 软件包仓库必须是 owner/repository 格式。" >&2
+        echo "Error: the Wayland package repository must use the owner/repository format." >&2
         return 1
     }
 
@@ -32,20 +32,20 @@ anland_prepare_release() {
     ANLAND_RESOLVED_REVISION="$revision"
     if [[ -n "$ANLAND_RESOLVED_REVISION" ]]; then
         [[ "$ANLAND_RESOLVED_REVISION" =~ ^[A-Za-z0-9._-]+$ ]] || {
-            echo "错误：Anland 包 revision 格式无效。" >&2
+            echo "Error: invalid Anland package revision format." >&2
             return 1
         }
         return
     fi
 
     command -v curl >/dev/null 2>&1 || {
-        echo "错误：启用 Anland 时需要 curl 读取软件包 Release 清单。" >&2
+        echo "Error: curl is required to read the package release manifest when Anland is enabled." >&2
         return 1
     }
     manifest="anland-${family}-manifest"
     if ! release_manifest="$(curl -fsSL --retry 3 --connect-timeout 20 \
         "https://github.com/${repository}/releases/download/${ANLAND_RESOLVED_RELEASE_TAG}/${manifest}")"; then
-        echo "错误：无法下载 Anland ${family^^} 包 Release 清单。" >&2
+        echo "Error: unable to download the Anland ${family^^} package release manifest." >&2
         return 1
     fi
 
@@ -59,7 +59,7 @@ anland_prepare_release() {
         }
     ')"
     [[ -n "$ANLAND_RESOLVED_REVISION" ]] || {
-        echo "错误：Release 清单缺少有效 revision。" >&2
+        echo "Error: the release manifest has no valid revision." >&2
         return 1
     }
 }

@@ -1,12 +1,8 @@
-name: Droidspaces RootFS 核心构建
+name: Droidspaces RootFS Core Build
 
 on:
   workflow_call:
     inputs:
-      ui_language:
-        required: false
-        type: string
-        default: zh
       build_target:
         required: true
         type: string
@@ -69,7 +65,7 @@ jobs:
   # Phase 1: setup (Environment preparation and variable generation)
   # --------------------------------------------------------
   setup:
-    name: ${{ inputs.ui_language == 'zh' && '准备构建' || 'Setup' }}
+    name: Setup
     runs-on: ubuntu-latest
     outputs:
       templates: ${{ steps.find-templates.outputs.templates }}
@@ -80,12 +76,12 @@ jobs:
       build_id: ${{ steps.prep.outputs.build_id }}
       build_date: ${{ steps.prep.outputs.build_date }}
     steps:
-      - name: ${{ inputs.ui_language == 'zh' && '检出仓库' || 'Checkout repository' }}
+      - name: Checkout repository
         uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
 
-      - name: ${{ inputs.ui_language == 'zh' && '解析构建选项' || 'Parse user build choices' }}
+      - name: Parse user build choices
         id: find-templates
         env:
           BUILD_TARGET_INPUT: ${{ inputs.build_target }}
@@ -95,44 +91,25 @@ jobs:
           DISPLAY_BACKEND_INPUT: ${{ inputs.display_backend }}
           ENABLE_SYSTEMD257_INPUT: ${{ inputs.enable_systemd257 }}
           PULSEAUDIO_INPUT: ${{ inputs.PulseAudio }}
-          UI_LANGUAGE: ${{ inputs.ui_language }}
           WAYLAND_PACKAGE_REPOSITORY: ${{ inputs.wayland_package_repository }}
         run: |
           set -euo pipefail
           source scripts/lib/desktop-config.sh
 
-          case "$UI_LANGUAGE" in
-            zh|en) ;;
-            *)
-              echo "不支持的界面语言 / Unsupported UI language: $UI_LANGUAGE" >&2
-              exit 1
-              ;;
-          esac
-
-          message() {
-            if [ "$UI_LANGUAGE" = zh ]; then
-              printf '%s\n' "$1"
-            else
-              printf '%s\n' "$2"
-            fi
-          }
-
           fail() {
-            message "$1" "$2" >&2
+            printf '%s\n' "$1" >&2
             exit 1
           }
 
           TARGET="$BUILD_TARGET_INPUT"
           DESKTOP="$(desktop_normalize "$DESKTOP_INPUT")" || {
-            fail "无效的桌面环境：$DESKTOP_INPUT" \
-              "Invalid desktop: $DESKTOP_INPUT"
+            fail "Invalid desktop: $DESKTOP_INPUT"
           }
           if [ "$DESKTOP" = "none" ]; then
             DISPLAY_BACKEND="x11"
           else
             DISPLAY_BACKEND="$(display_backend_normalize "$DISPLAY_BACKEND_INPUT")" || {
-              fail "无效的显示后端：$DISPLAY_BACKEND_INPUT" \
-                "Invalid display backend: $DISPLAY_BACKEND_INPUT"
+              fail "Invalid display backend: $DISPLAY_BACKEND_INPUT"
             }
           fi
           DESKTOP_AUTOSTART="$DESKTOP_AUTOSTART_INPUT"
@@ -141,8 +118,7 @@ jobs:
           if [ "$ENABLE_SYSTEMD257_INPUT" = "true" ]; then
             case "$DESKTOP" in
               kde)
-                message "已启用 systemd 257：普通 KDE 位于验证支持白名单中。" \
-                  "systemd 257 is enabled: standard KDE is on the verified support allowlist."
+                echo "systemd 257 is enabled: standard KDE is on the verified support allowlist."
                 ;;
               none)
                 DISPLAY_BACKEND="x11"
@@ -150,11 +126,9 @@ jobs:
                 ;;
               *)
                 [ "$TARGET" != "all-wayland" ] || {
-                  fail "systemd 257 的 all-wayland 构建只支持普通 KDE。" \
-                    "systemd 257 all-wayland builds only support standard KDE."
+                  fail "systemd 257 all-wayland builds only support standard KDE."
                 }
-                message "systemd 257 尚不支持 $DESKTOP：强制使用 none 桌面并关闭桌面开机自启动。" \
-                  "systemd 257 does not support $DESKTOP: forcing desktop=none and disabling desktop auto-start."
+                echo "systemd 257 does not support $DESKTOP: forcing desktop=none and disabling desktop auto-start."
                 DESKTOP="none"
                 DISPLAY_BACKEND="x11"
                 DESKTOP_AUTOSTART="false"
@@ -163,20 +137,17 @@ jobs:
           fi
 
           if [[ ! "$WAYLAND_PACKAGE_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
-            fail "Wayland 软件包仓库必须使用公开的“所有者/仓库名”格式。" \
-              "Wayland package repository must use the public owner/repository format."
+            fail "Wayland package repository must use the public owner/repository format."
           fi
           if [[ ! "$CUSTOM_USERNAME" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]; then
-            fail "自定义用户名必须是 1 至 32 个字符的有效 Linux 用户名。" \
-              "Custom username must be a 1-32 character Linux username."
+            fail "Custom username must be a 1-32 character Linux username."
           fi
 
           if [ "$DESKTOP" = "kde-mobile" ] || [ "$DESKTOP" = "gnome" ] || [ "$DESKTOP" = "anland-next" ] || [ "$DESKTOP" = "niri" ]; then
             DISPLAY_BACKEND="anland-wayland"
           fi
           if [ "$DESKTOP" = "none" ] && [ "$DESKTOP_AUTOSTART" = "true" ]; then
-            fail "未安装桌面时不能启用桌面开机自启动。" \
-              "Desktop auto-start cannot be enabled when desktop is none."
+            fail "Desktop auto-start cannot be enabled when desktop is none."
           fi
 
           case "$TARGET" in
@@ -190,30 +161,31 @@ jobs:
                 done
               } | sort | jq -R -s -c 'split("\n")[:-1]')"
               ;;
+            gnome-debian-ubuntu)
+              # Convenience target: the GNOME desktop on Debian 13 and Ubuntu 26 only.
+              DISPLAY_BACKEND="anland-wayland"
+              TEMPLATES='["Debian-13","Ubuntu-26"]'
+              ;;
             all-wayland)
               [ "$DESKTOP" != "none" ] || {
-                fail "all-wayland 需要选择一个桌面环境。" \
-                  "all-wayland requires a desktop profile."
+                fail "all-wayland requires a desktop profile."
               }
               DISPLAY_BACKEND="anland-wayland"
               TEMPLATES="$(desktop_wayland_targets_json "$DESKTOP")"
               ;;
             *)
               target_is_known "$TARGET" || {
-                fail "未知的构建目标：$TARGET" \
-                  "Unknown build target: $TARGET"
+                fail "Unknown build target: $TARGET"
               }
               desktop_backend_supported "$TARGET" "$DESKTOP" "$DISPLAY_BACKEND" || {
-                fail "不支持的发行版、桌面和显示后端组合：$TARGET/$DESKTOP/$DISPLAY_BACKEND" \
-                  "Unsupported target/profile/backend: $TARGET/$DESKTOP/$DISPLAY_BACKEND"
+                fail "Unsupported target/profile/backend: $TARGET/$DESKTOP/$DISPLAY_BACKEND"
               }
               TEMPLATES="$(jq -n -c --arg t "$TARGET" '[$t]')"
               ;;
           esac
 
           [ "$TEMPLATES" != "[]" ] || {
-            fail "没有发行版支持 $DESKTOP/$DISPLAY_BACKEND。" \
-              "No target supports $DESKTOP/$DISPLAY_BACKEND."
+            fail "No target supports $DESKTOP/$DISPLAY_BACKEND."
           }
           if [ "$DISPLAY_BACKEND" = "anland-wayland" ]; then
             PULSE_AUDIO="none"
@@ -223,36 +195,27 @@ jobs:
           echo "desktop_autostart=$DESKTOP_AUTOSTART" >> "$GITHUB_OUTPUT"
           echo "display_backend=$DISPLAY_BACKEND" >> "$GITHUB_OUTPUT"
           echo "pulseaudio_effective=$PULSE_AUDIO" >> "$GITHUB_OUTPUT"
-          message "最终构建矩阵：$TEMPLATES" "Final decided build matrix: $TEMPLATES"
-          message "桌面环境：$DESKTOP" "Desktop profile: $DESKTOP"
-          message "桌面开机自启动：$DESKTOP_AUTOSTART" \
-            "Desktop auto-start: $DESKTOP_AUTOSTART"
-          message "显示后端：$DISPLAY_BACKEND" "Display backend: $DISPLAY_BACKEND"
-          message "Wayland 软件包仓库：$WAYLAND_PACKAGE_REPOSITORY" \
-            "Wayland package repository: $WAYLAND_PACKAGE_REPOSITORY"
-          message "最终 PulseAudio 设置：$PULSE_AUDIO" \
-            "Final PulseAudio value: $PULSE_AUDIO"
+          echo "Final decided build matrix: $TEMPLATES"
+          echo "Desktop profile: $DESKTOP"
+          echo "Desktop auto-start: $DESKTOP_AUTOSTART"
+          echo "Display backend: $DISPLAY_BACKEND"
+          echo "Wayland package repository: $WAYLAND_PACKAGE_REPOSITORY"
+          echo "Final PulseAudio value: $PULSE_AUDIO"
 
-      - name: ${{ inputs.ui_language == 'zh' && '生成构建信息' || 'Prepare build metadata' }}
+      - name: Prepare build metadata
         id: prep
-        env:
-          UI_LANGUAGE: ${{ inputs.ui_language }}
         run: |
           BUILD_DATE=$(date +'%Y-%m-%d %H:%M:%S')
           BUILD_ID="v$(date +'%Y%m%d-%H%M%S')"
           echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
           echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
-          if [ "$UI_LANGUAGE" = zh ]; then
-            echo "构建 ID：$BUILD_ID"
-          else
-            echo "Build ID: $BUILD_ID"
-          fi
+          echo "Build ID: $BUILD_ID"
 
   # --------------------------------------------------------
   # Phase 2: build (Build of regular Linux distribution RootFS)
   # --------------------------------------------------------
   build:
-    name: ${{ inputs.ui_language == 'zh' && format('构建 {0}', matrix.template) || format('Build {0}', matrix.template) }}
+    name: ${{ format('Build {0}', matrix.template) }}
     needs: setup
     if: ${{ needs.setup.outputs.templates != '[]' }}
     runs-on: ubuntu-24.04-arm
@@ -261,12 +224,12 @@ jobs:
       matrix:
         template: ${{ fromJson(needs.setup.outputs.templates) }}
     steps:
-      - name: ${{ inputs.ui_language == 'zh' && '检出仓库' || 'Checkout repository' }}
+      - name: Checkout repository
         uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
 
-      - name: ${{ inputs.ui_language == 'zh' && format('构建根文件系统（{0}）', matrix.template) || format('Build RootFS ({0})', matrix.template) }}
+      - name: ${{ format('Build RootFS ({0})', matrix.template) }}
         env:
           ANLAND_RELEASE_REPOSITORY: ${{ inputs.wayland_package_repository }}
           CUSTOM_USERNAME: ${{ inputs.custom_username }}
@@ -292,7 +255,7 @@ jobs:
             -t "${{ inputs.enable_8gen2_wayland }}" \
             -u "$CUSTOM_USERNAME"
 
-      - name: ${{ inputs.ui_language == 'zh' && '上传构建产物' || 'Upload build artifacts' }}
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.template }}-${{ needs.setup.outputs.desktop }}-rootfs
@@ -303,32 +266,31 @@ jobs:
   # Phase 3: release (Summary and release)
   # --------------------------------------------------------
   release:
-    name: ${{ inputs.ui_language == 'zh' && '发布构建结果' || 'Publish build results' }}
+    name: Publish build results
     needs: [setup, build]
     if: ${{ !cancelled() && needs.setup.result == 'success' && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: ${{ inputs.ui_language == 'zh' && '检出仓库' || 'Checkout repository' }}
+      - name: Checkout repository
         uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
 
-      - name: ${{ inputs.ui_language == 'zh' && '下载全部构建产物' || 'Download all artifacts' }}
+      - name: Download all artifacts
         uses: actions/download-artifact@v7
         with:
           pattern: "*-rootfs"
           merge-multiple: true
 
-      - name: ${{ inputs.ui_language == 'zh' && '整理发布文件' || 'Organize release files' }}
+      - name: Organize release files
         run: |
           mkdir -p release_assets
           mv *.tar.xz release_assets/
 
-      - name: ${{ inputs.ui_language == 'zh' && '生成发布说明' || 'Prepare Release notes' }}
+      - name: Prepare Release notes
         env:
-          UI_LANGUAGE: ${{ inputs.ui_language }}
           BUILD_TIME: ${{ needs.setup.outputs.build_date }}
           BUILD_TARGET: ${{ inputs.build_target }}
           BUILD_ID: ${{ needs.setup.outputs.build_id }}
@@ -351,35 +313,7 @@ jobs:
           ENABLE_DOCKER: ${{ inputs.enable_docker }}
         run: |
           set -euo pipefail
-          if [ "$UI_LANGUAGE" = zh ]; then
-            cat > release-notes.md <<EOF
-          Droidspaces 根文件系统自动构建
-          构建时间：$BUILD_TIME
-          构建目标：$BUILD_TARGET
-          构建 ID：$BUILD_ID
-
-          构建选项：
-          - **自定义用户名**：$CUSTOM_USERNAME
-          - **桌面环境**：$DESKTOP
-          - **桌面开机自启动**：$DESKTOP_AUTOSTART
-          - **显示后端**：$DISPLAY_BACKEND
-          - Wayland 软件包仓库：$WAYLAND_PACKAGE_REPOSITORY
-          - PulseAudio 音频转发：$PULSE_AUDIO
-          - Anland 音频说明：Wayland 模式使用 Anland 应用内置音频，无需 PulseAudio
-          - 移除 Ubuntu Snap：$ENABLE_NOSNAP
-          - systemd 257 旧内核兼容：$ENABLE_SYSTEMD257
-          - 使用中文并设置上海时区：$ENABLE_ZH_TZ
-          - 高通骁龙 GPU 支持：$ENABLE_MESA
-          - 修复骁龙 8 Gen 2 Wayland 显示异常：$ENABLE_8GEN2_WAYLAND
-          - Fcitx 5 输入法支持：$ENABLE_FCITX5
-          - 跨架构支持：$ENABLE_BINFMT
-          - 容器硬件和网络识别：$ENABLE_HARDWARE
-          - 开发工具：$ENABLE_DEV_TOOLS
-          - 压缩工具：$ENABLE_COMPRESSION
-          - Docker：$ENABLE_DOCKER
-          EOF
-          else
-            cat > release-notes.md <<EOF
+          cat > release-notes.md <<EOF
           Droidspaces RootFS Automated Build
           Build Time: $BUILD_TIME
           Build Target (User Specified): $BUILD_TARGET
@@ -405,15 +339,14 @@ jobs:
           - Compression Tools Integration: $ENABLE_COMPRESSION
           - Docker Integration: $ENABLE_DOCKER
           EOF
-          fi
 
-      - name: ${{ inputs.ui_language == 'zh' && '创建草稿 Release 并上传文件' || 'Stage draft Release and upload assets' }}
+      - name: Stage draft Release and upload assets
         id: stage-release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.setup.outputs.build_id }}
           target_commitish: ${{ github.sha }}
-          name: ${{ inputs.ui_language == 'zh' && format('Droidspaces 根文件系统 {0}', needs.setup.outputs.build_id) || format('Droidspaces RootFS {0}', needs.setup.outputs.build_id) }}
+          name: ${{ format('Droidspaces RootFS {0}', needs.setup.outputs.build_id) }}
           files: "release_assets/*"
           body_path: release-notes.md
 
@@ -422,21 +355,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-      - name: ${{ inputs.ui_language == 'zh' && '发布已验证的 Release' || 'Publish staged Release' }}
+      - name: Publish staged Release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_ID: ${{ steps.stage-release.outputs.id }}
           REPOSITORY: ${{ github.repository }}
-          UI_LANGUAGE: ${{ inputs.ui_language }}
         run: |
           set -euo pipefail
           case "$RELEASE_ID" in
             ''|*[!0-9]*)
-              if [ "$UI_LANGUAGE" = zh ]; then
-                echo "Release 操作没有返回有效的草稿 Release ID。" >&2
-              else
-                echo "Release action did not return a valid draft Release ID." >&2
-              fi
+              echo "Release action did not return a valid draft Release ID." >&2
               exit 1
               ;;
           esac

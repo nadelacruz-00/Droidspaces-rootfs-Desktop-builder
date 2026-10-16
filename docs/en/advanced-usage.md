@@ -1,4 +1,4 @@
-[Documentation index](README.md) · [Project home](../../README_english.md)
+[Documentation index](README.md) · [Project home](../../README.md)
 
 # Advanced Usage
 
@@ -11,7 +11,7 @@ droidspaces-tui
 # aliases: dstui or ds-tui
 ```
 
-See the [script guide](../../scripts/README_english.md#droidspaces-tui) for download sources, integrity checks, cache management, updates, and uninstall behavior.
+See the [script guide](../../scripts/README.md#droidspaces-tui) for download sources, integrity checks, cache management, updates, and uninstall behavior.
 
 ## USB device management
 
@@ -21,7 +21,7 @@ All distributions include [Droidspaces USB Manager](https://github.com/Yizhou147
 usb-manager
 ```
 
-The `usb-passthrough` and `usb-storage-passthrough` commands are also available. See the [script guide](../../scripts/README_english.md#usb-manager-installer) for installation and updates.
+The `usb-passthrough` and `usb-storage-passthrough` commands are also available. See the [script guide](../../scripts/README.md#usb-manager-installer) for installation and updates.
 
 ## Install hardware firmware
 
@@ -31,7 +31,7 @@ Debian 13 and Ubuntu 24/25/26 images include `download-firmware`. Run it manuall
 sudo download-firmware
 ```
 
-It does not run during build or container startup. Dependencies and processing details are in the [script guide](../../scripts/README_english.md#firmware-tool).
+It does not run during build or container startup. Dependencies and processing details are in the [script guide](../../scripts/README.md#firmware-tool).
 
 ## Local builds
 
@@ -70,4 +70,4 @@ The output name resembles `Ubuntu-26-kde-Wayland-Droidspaces-rootfs-aarch64-loca
 - Fedora may need hardware access on some devices. Debian/Ubuntu may lag when `noseccomp` is disabled or the host kernel lacks `USER_NS`.
 - This project's QEMU/binfmt cross-architecture path is not currently recommended for Arch.
 
-Anland KDE/GNOME packages are maintained in the separate [`droidspaces-package`](https://github.com/Goldzxcbug/droidspaces-package) repository. See the [project home](../../README_english.md#acknowledgements) for acknowledgements.
+Anland KDE/GNOME packages are maintained in the separate [`droidspaces-package`](https://github.com/Goldzxcbug/droidspaces-package) repository. See the [project home](../../README.md#acknowledgements) for acknowledgements.

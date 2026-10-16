@@ -1,4 +1,4 @@
-[Documentation index](README.md) · [Project home](../../README_english.md)
+[Documentation index](README.md) · [Project home](../../README.md)
 
 # Desktop Startup and Anland Wayland
 
@@ -62,4 +62,4 @@ sudo ./scripts/tui/install-anland-gnome.sh
 
 The in-container installer supports Arch pacman packages and reads the Arch target from the `anland-gnome-packages` Release manifest.
 
-See the [script guide](../../scripts/README_english.md#anland-kde-installer) for installer options, download sources, and verification.
+See the [script guide](../../scripts/README.md#anland-kde-installer) for installer options, download sources, and verification.

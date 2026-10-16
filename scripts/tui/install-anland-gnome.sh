@@ -23,7 +23,6 @@ readonly DESKTOP_CONFIG="${DROIDSPACES_DESKTOP_CONFIG:-/etc/droidspaces-desktop.
 WORK_DIR=""
 PREPARED_WORK_DIR="${ANLAND_GNOME_WORK_DIR:-}"
 PREPARED_PACKAGE_DIR="${ANLAND_GNOME_PACKAGE_DIR:-}"
-UI_LANG="en"
 TARGET=""
 ARCHIVE_PREFIX=""
 ARCHIVE_SUFFIX=""
@@ -38,35 +37,23 @@ EXPECTED_ARCHIVE_SHA256=""
 OFFICIAL_RELEASE_METADATA=""
 UNINSTALL=false
 
-detect_language() {
-    local locale_name="${LC_ALL:-${LC_MESSAGES:-${LANG:-C}}}"
-    locale_name="${locale_name,,}"
-    if [[ "$locale_name" == zh* ]]; then
-        UI_LANG="zh"
-    fi
-}
-
 msg() {
-    if [[ "$UI_LANG" == "zh" ]]; then
-        printf '%s' "$1"
-    else
-        printf '%s' "$2"
-    fi
+    printf '%s' "$1"
 }
 
 log() {
-    printf '[anland-gnome] %s\n' "$(msg "$1" "$2")"
+    printf '[anland-gnome] %s\n' "$(msg "$1")"
 }
 
 record_component_version() {
     local version="$1" state_file="$COMPONENT_STATE_DIR/gnome.version" temporary_file
     [[ "$version" =~ ^[0-9A-Za-z][0-9A-Za-z.+:~_-]{0,63}$ ]] || return 0
     if ! mkdir -p -- "$COMPONENT_STATE_DIR"; then
-        log "无法记录已安装的 Mutter 版本。" "Could not record the installed Mutter version."
+        log "Could not record the installed Mutter version."
         return 0
     fi
     temporary_file="$(mktemp "$state_file.tmp.XXXXXXXX")" || {
-        log "无法记录已安装的 Mutter 版本。" "Could not record the installed Mutter version."
+        log "Could not record the installed Mutter version."
         return 0
     }
     if printf '%s\n' "$version" > "$temporary_file" && \
@@ -74,7 +61,7 @@ record_component_version() {
         return 0
     fi
     rm -f -- "$temporary_file" || true
-    log "无法记录已安装的 Mutter 版本。" "Could not record the installed Mutter version."
+    log "Could not record the installed Mutter version."
     return 0
 }
 
@@ -86,23 +73,21 @@ update_desktop_config() {
     if [[ ! -e "$DESKTOP_CONFIG" && ! -L "$DESKTOP_CONFIG" ]]; then
         if [[ ! -d "$config_dir" ]]; then
             install -d -m 0755 -- "$config_dir" || \
-                die "无法创建桌面配置目录。" "Could not create the desktop configuration directory."
+                die "Could not create the desktop configuration directory."
         fi
         temporary_file="$(mktemp "$config_dir/.droidspaces-desktop.conf.tmp.XXXXXXXX")" || \
-            die "无法创建临时桌面配置。" "Could not create a temporary desktop configuration."
+            die "Could not create a temporary desktop configuration."
         if ! printf 'DESKTOP=%s\n' "$desktop" > "$temporary_file" || \
             ! chmod 0644 "$temporary_file" || ! mv -f -- "$temporary_file" "$DESKTOP_CONFIG"; then
             rm -f -- "$temporary_file" || true
-            die "无法创建桌面配置。" "Could not create the desktop configuration."
+            die "Could not create the desktop configuration."
         fi
-        log "已创建桌面配置：DESKTOP=${desktop}。" \
-            "Created the desktop configuration with DESKTOP=${desktop}."
+        log "Created the desktop configuration with DESKTOP=${desktop}."
         return
     fi
 
     if [[ ! -f "$DESKTOP_CONFIG" || -L "$DESKTOP_CONFIG" || ! -r "$DESKTOP_CONFIG" ]]; then
-        die "桌面配置不是可安全修改的普通文件：${DESKTOP_CONFIG}。" \
-            "The desktop configuration is not a safely writable regular file: ${DESKTOP_CONFIG}."
+        die "The desktop configuration is not a safely writable regular file: ${DESKTOP_CONFIG}."
     fi
     while IFS= read -r line || [[ -n "$line" ]]; do
         case "$line" in
@@ -114,31 +99,28 @@ update_desktop_config() {
     done < "$DESKTOP_CONFIG"
     if ((desktop_lines != 1)) || \
         [[ ! "$configured_desktop" =~ ^(none|[a-z][a-z0-9-]*)$ ]]; then
-        die "桌面配置格式无效，未覆盖原文件。" \
-            "The desktop configuration is invalid; the original file was not overwritten."
+        die "The desktop configuration is invalid; the original file was not overwritten."
     fi
     if [[ "$configured_desktop" != none ]]; then
-        log "保留现有桌面配置：DESKTOP=${configured_desktop}。" \
-            "Keeping the existing desktop configuration: DESKTOP=${configured_desktop}."
+        log "Keeping the existing desktop configuration: DESKTOP=${configured_desktop}."
         return
     fi
 
     temporary_file="$(mktemp "$config_dir/.droidspaces-desktop.conf.tmp.XXXXXXXX")" || \
-        die "无法创建临时桌面配置。" "Could not create a temporary desktop configuration."
+        die "Could not create a temporary desktop configuration."
     if ! awk -v desktop="$desktop" '
         /^DESKTOP=/ { print "DESKTOP=" desktop; next }
         { print }
     ' "$DESKTOP_CONFIG" > "$temporary_file" || ! chmod 0644 "$temporary_file" || \
         ! mv -f -- "$temporary_file" "$DESKTOP_CONFIG"; then
         rm -f -- "$temporary_file" || true
-        die "无法更新桌面配置。" "Could not update the desktop configuration."
+        die "Could not update the desktop configuration."
     fi
-    log "已将桌面配置更新为 DESKTOP=${desktop}。" \
-        "Updated the desktop configuration to DESKTOP=${desktop}."
+    log "Updated the desktop configuration to DESKTOP=${desktop}."
 }
 
 die() {
-    printf '[anland-gnome] %s: %s\n' "$(msg '错误' 'Error')" "$(msg "$1" "$2")" >&2
+    printf '[anland-gnome] %s: %s\n' "$(msg 'Error')" "$(msg "$1")" >&2
     exit 1
 }
 
@@ -163,8 +145,7 @@ parse_arguments() {
                 UNINSTALL=true
                 ;;
             *)
-                die "不支持的参数：${argument}。可用参数为 -1/--1、-2/--2、-3/--3、--uninstall。" \
-                    "Unsupported argument: ${argument}. Valid arguments are -1/--1, -2/--2, -3/--3, and --uninstall."
+                die "Unsupported argument: ${argument}. Valid arguments are -1/--1, -2/--2, -3/--3, and --uninstall."
                 ;;
         esac
     done
@@ -175,14 +156,14 @@ uninstall_gnome_deb() {
     local -a packages=() package_specs=()
     [[ -s "$APT_HOLD_STATE" ]] || {
         rm -f -- "$COMPONENT_STATE_DIR/gnome.version"
-        log "没有 Anland GNOME 安装记录。" "No Anland GNOME installation record was found."
+        log "No Anland GNOME installation record was found."
         return 0
     }
-    command -v apt-cache >/dev/null 2>&1 || die "未找到 apt-cache。" "apt-cache was not found."
-    command -v apt-get >/dev/null 2>&1 || die "未找到 apt-get。" "apt-get was not found."
-    command -v apt-mark >/dev/null 2>&1 || die "未找到 apt-mark。" "apt-mark was not found."
+    command -v apt-cache >/dev/null 2>&1 || die "apt-cache was not found."
+    command -v apt-get >/dev/null 2>&1 || die "apt-get was not found."
+    command -v apt-mark >/dev/null 2>&1 || die "apt-mark was not found."
     mapfile -t packages < <(sed -nE 's/^([a-z0-9][a-z0-9+.-]*)$/\1/p' "$APT_HOLD_STATE" | sort -u)
-    ((${#packages[@]} > 0)) || die "APT hold 清单为空。" "The APT hold list is empty."
+    ((${#packages[@]} > 0)) || die "The APT hold list is empty."
     for package in "${packages[@]}"; do
         candidate="$(apt-cache madison "$package" | awk -F '|' 'NR == 1 {
             value = $2
@@ -190,7 +171,7 @@ uninstall_gnome_deb() {
             print value
         }')"
         [[ -n "$candidate" ]] || \
-            die "找不到 $package 的官方候选版本。" "No distribution candidate was found for $package."
+            die "No distribution candidate was found for $package."
         package_specs+=("$package=$candidate")
     done
     apt-mark unhold "${packages[@]}" >/dev/null
@@ -198,16 +179,15 @@ uninstall_gnome_deb() {
         "${package_specs[@]}"
     rm -f -- "$APT_HOLD_STATE" "$COMPONENT_STATE_DIR/gnome.version"
     rmdir -- "${APT_HOLD_STATE%/*}" 2>/dev/null || true
-    log "Anland GNOME 已卸载，发行版 Mutter/Xwayland 已恢复。" \
-        "Anland GNOME was uninstalled and distribution Mutter/Xwayland packages were restored."
+    log "Anland GNOME was uninstalled and distribution Mutter/Xwayland packages were restored."
 }
 
 uninstall_gnome_arch() {
     local package backup stripped
     local -a packages=()
 
-    command -v pacman >/dev/null 2>&1 || die "未找到 pacman。" "pacman was not found."
-    [[ -f /etc/pacman.conf ]] || die "找不到 pacman.conf。" "pacman.conf was not found."
+    command -v pacman >/dev/null 2>&1 || die "pacman was not found."
+    [[ -f /etc/pacman.conf ]] || die "pacman.conf was not found."
     if [[ -s "$PACMAN_PACKAGE_STATE" ]]; then
         mapfile -t packages < <(sed -nE 's/^([A-Za-z0-9@.+_-]+)$/\1/p' "$PACMAN_PACKAGE_STATE" | sort -u)
     else
@@ -227,11 +207,11 @@ uninstall_gnome_arch() {
         done
         if ((${#packages[@]} == 0)); then
             rm -f -- "$COMPONENT_STATE_DIR/gnome.version"
-            log "没有 Anland GNOME 安装记录。" "No Anland GNOME installation record was found."
+            log "No Anland GNOME installation record was found."
             return 0
         fi
     fi
-    ((${#packages[@]} > 0)) || die "Arch 软件包恢复清单为空。" "The Arch package restore list is empty."
+    ((${#packages[@]} > 0)) || die "The Arch package restore list is empty."
 
     backup="$(mktemp -t anland-gnome-uninstall.XXXXXXXX)"
     stripped="$(mktemp -t anland-gnome-uninstall.XXXXXXXX)"
@@ -257,27 +237,26 @@ uninstall_gnome_arch() {
         { print }
     ' /etc/pacman.conf > "$stripped"; then
         rm -f -- "$backup" "$stripped"
-        die "无法处理 pacman.conf。" "Could not process pacman.conf."
+        die "Could not process pacman.conf."
     fi
     if ! install -m 0644 -- "$stripped" /etc/pacman.conf || \
         ! pacman -S --noconfirm "${packages[@]}"; then
         install -m 0644 -- "$backup" /etc/pacman.conf || true
         rm -f -- "$backup" "$stripped"
-        die "恢复发行版 Mutter/Xwayland 失败。" "Failed to restore the distribution Mutter/Xwayland packages."
+        die "Failed to restore the distribution Mutter/Xwayland packages."
     fi
 
     rm -f -- "$backup" "$stripped" "$PACMAN_PACKAGE_STATE" \
         "$APT_HOLD_STATE" "$COMPONENT_STATE_DIR/gnome.version"
     rmdir -- "${PACMAN_PACKAGE_STATE%/*}" 2>/dev/null || true
-    log "Anland GNOME 已卸载，发行版 Mutter/Xwayland 已恢复。" \
-        "Anland GNOME was uninstalled and distribution Mutter/Xwayland packages were restored."
+    log "Anland GNOME was uninstalled and distribution Mutter/Xwayland packages were restored."
 }
 
 uninstall_gnome() {
     case "$PACKAGE_TYPE" in
         deb) uninstall_gnome_deb ;;
         pkg.tar.*) uninstall_gnome_arch ;;
-        *) die "无法确定 GNOME 软件包类型。" "Could not determine the GNOME package type." ;;
+        *) die "Could not determine the GNOME package type." ;;
     esac
 }
 
@@ -293,8 +272,8 @@ require_root() {
         return
     fi
 
-    command -v sudo >/dev/null 2>&1 || die "请使用 root 账户运行此脚本。" "Please run this script as root."
-    log "正在通过 sudo 重新运行安装程序..." "Restarting the installer with sudo..."
+    command -v sudo >/dev/null 2>&1 || die "Please run this script as root."
+    log "Restarting the installer with sudo..."
     local script_path="${BASH_SOURCE[0]}"
     [[ "$script_path" = /* ]] || script_path="$PWD/$script_path"
     local status
@@ -314,11 +293,11 @@ require_root() {
 }
 
 detect_target() {
-    [[ -r /etc/os-release ]] || die "无法读取 /etc/os-release。" "Unable to read /etc/os-release."
+    [[ -r /etc/os-release ]] || die "Unable to read /etc/os-release."
 
     # shellcheck disable=SC1091
     source /etc/os-release
-    [[ -n "${ID:-}" ]] || die "/etc/os-release 缺少 ID。" "/etc/os-release does not contain ID."
+    [[ -n "${ID:-}" ]] || die "/etc/os-release does not contain ID."
     local distro_id="${ID,,}"
     local version_id="${VERSION_ID:-}"
     local system_name="${PRETTY_NAME:-$distro_id${version_id:+ $version_id}}"
@@ -332,7 +311,7 @@ detect_target() {
             ARCHIVE_TARGET="arch"
             ;;
         *)
-            [[ -n "$version_id" ]] || die "/etc/os-release 缺少 VERSION_ID。" "/etc/os-release does not contain VERSION_ID."
+            [[ -n "$version_id" ]] || die "/etc/os-release does not contain VERSION_ID."
             case "$distro_id:$version_id" in
                 debian:13*)
                     TARGET="Debian 13"
@@ -349,22 +328,20 @@ detect_target() {
                     ARCHIVE_TARGET="ubuntu2604"
                     ;;
                 *)
-                    die "不支持当前系统 ${system_name}。仅支持 Debian 13、Ubuntu 26.04 和 Arch Linux ARM。" \
-                        "Unsupported system: ${system_name}. Supported systems are Debian 13, Ubuntu 26.04, and Arch Linux ARM."
+                    die "Unsupported system: ${system_name}. Supported systems are Debian 13, Ubuntu 26.04, and Arch Linux ARM."
                     ;;
             esac
             ;;
     esac
 
-    log "已识别系统: ${system_name} -> ${TARGET}" "Detected system: ${system_name} -> ${TARGET}"
+    log "Detected system: ${system_name} -> ${TARGET}"
 }
 
 check_architecture() {
     case "$(uname -m)" in
         aarch64|arm64) ;;
         *)
-            die "预编译包仅支持 ARM64/aarch64，当前架构为 $(uname -m)。" \
-                "The prebuilt packages support ARM64/aarch64 only; current architecture is $(uname -m)."
+            die "The prebuilt packages support ARM64/aarch64 only; current architecture is $(uname -m)."
             ;;
     esac
 }
@@ -378,7 +355,7 @@ download_file() {
     elif command -v wget >/dev/null 2>&1; then
         wget --tries=3 --timeout=20 --waitretry=3 --retry-connrefused -O "$destination" "$url"
     else
-        die "未找到 curl 或 wget，无法下载安装包。" "Neither curl nor wget was found; packages cannot be downloaded."
+        die "Neither curl nor wget was found; packages cannot be downloaded."
     fi
 }
 
@@ -390,7 +367,7 @@ download_stdout() {
     elif command -v wget >/dev/null 2>&1; then
         wget -q --tries=3 --timeout=20 --waitretry=3 --retry-connrefused -O - "$url"
     else
-        die "未找到 curl 或 wget，无法读取 Release 信息。" "Neither curl nor wget was found; Release information cannot be read."
+        die "Neither curl nor wget was found; Release information cannot be read."
     fi
 }
 
@@ -398,16 +375,14 @@ validate_release_tag() {
     case "$RELEASE_TAG" in
         "$ROLLING_RELEASE_TAG") ;;
         *)
-            die "Release tag 只能是 ${ROLLING_RELEASE_TAG}。" \
-                "The Release tag must be ${ROLLING_RELEASE_TAG}."
+            die "The Release tag must be ${ROLLING_RELEASE_TAG}."
             ;;
     esac
 }
 
 validate_repository() {
     if [[ ! "$RELEASE_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
-        die "Release 仓库必须是 owner/repository 格式。" \
-            "The Release repository must use the owner/repository format."
+        die "The Release repository must use the owner/repository format."
     fi
 }
 
@@ -417,7 +392,7 @@ resolve_release_tag() {
         RELEASE_TAG="$ROLLING_RELEASE_TAG"
     fi
     validate_release_tag
-    log "使用固定滚动 Release: ${RELEASE_TAG}" "Using rolling Release: ${RELEASE_TAG}"
+    log "Using rolling Release: ${RELEASE_TAG}"
 }
 
 resolve_archive_name() {
@@ -427,7 +402,7 @@ resolve_archive_name() {
     manifest_format="$(awk -F= '$1 == "format" { print substr($0, index($0, "=") + 1) }' "$manifest_file")"
     manifest_release_tag="$(awk -F= '$1 == "release_tag" { print substr($0, index($0, "=") + 1) }' "$manifest_file")"
     [[ "$manifest_format" == "1" && "$manifest_release_tag" == "$RELEASE_TAG" ]] || {
-        log "Release 清单格式无效。" "The Release manifest format is invalid."
+        log "The Release manifest format is invalid."
         return 1
     }
 
@@ -435,13 +410,12 @@ resolve_archive_name() {
     case "$selected_name" in
         "${ARCHIVE_PREFIX}"*"${ARCHIVE_SUFFIX}") ;;
         *)
-            log "Release 清单没有 ${TARGET} 的匹配 ARM64 包。" \
-                "The Release manifest has no matching ARM64 archive for ${TARGET}."
+            log "The Release manifest has no matching ARM64 archive for ${TARGET}."
             return 1
             ;;
     esac
     if [[ ! "$selected_name" =~ ^[A-Za-z0-9._+~_-]+$ || "$selected_name" == *..* ]]; then
-        log "Release 清单中的包名无效。" "The archive name in the Release manifest is invalid."
+        log "The archive name in the Release manifest is invalid."
         return 1
     fi
 
@@ -452,26 +426,23 @@ resolve_archive_name() {
         checksum_count="$(awk -F= -v key="$checksum_key" '$1 == key { count += 1 } END { print count + 0 }' "$manifest_file")" || return 1
         case "$checksum_count" in
             0)
-                log "CNB 的旧 Release 清单没有 ${ARCHIVE_NAME} 的 SHA-256；将只执行归档结构和软件包元数据校验。" \
-                    "The legacy CNB Release manifest has no SHA-256 for ${ARCHIVE_NAME}; only archive structure and package metadata will be verified."
+                log "The legacy CNB Release manifest has no SHA-256 for ${ARCHIVE_NAME}; only archive structure and package metadata will be verified."
                 ;;
             1)
                 checksum="$(awk -F= -v key="$checksum_key" '$1 == key { print substr($0, index($0, "=") + 1) }' "$manifest_file")" || return 1
                 [[ "$checksum" =~ ^[0-9A-Fa-f]{64}$ ]] || {
-                    log "CNB Release 清单中的 ${ARCHIVE_NAME} SHA-256 无效。" \
-                        "The CNB Release manifest has an invalid SHA-256 for ${ARCHIVE_NAME}."
+                    log "The CNB Release manifest has an invalid SHA-256 for ${ARCHIVE_NAME}."
                     return 1
                 }
                 EXPECTED_ARCHIVE_SHA256="${checksum,,}"
                 ;;
             *)
-                log "CNB Release 清单中的 ${ARCHIVE_NAME} SHA-256 不唯一。" \
-                    "The CNB Release manifest has multiple SHA-256 entries for ${ARCHIVE_NAME}."
+                log "The CNB Release manifest has multiple SHA-256 entries for ${ARCHIVE_NAME}."
                 return 1
                 ;;
         esac
     fi
-    log "已选择 ${ARCHIVE_NAME}" "Selected ${ARCHIVE_NAME}"
+    log "Selected ${ARCHIVE_NAME}"
 }
 
 fetch_official_release_metadata() {
@@ -479,8 +450,7 @@ fetch_official_release_metadata() {
 
     api_url="${GITHUB_API_URL}/repos/${RELEASE_REPOSITORY}/releases/tags/${RELEASE_TAG}"
     if ! OFFICIAL_RELEASE_METADATA="$(download_stdout "$api_url")"; then
-        log "无法获取 GitHub 官方 SHA-256 校验值，拒绝使用第三方镜像包。" \
-            "Could not obtain GitHub's official SHA-256 digest; refusing the third-party mirror package."
+        log "Could not obtain GitHub's official SHA-256 digest; refusing the third-party mirror package."
         return 1
     fi
 }
@@ -512,17 +482,14 @@ resolve_official_manifest_sha256() {
         return
     fi
     command -v jq >/dev/null 2>&1 || \
-        die "选择第三方镜像需要 jq 来校验 GitHub Release。" \
-            "Selecting a third-party mirror requires jq to verify the GitHub Release."
+        die "Selecting a third-party mirror requires jq to verify the GitHub Release."
     command -v sha256sum >/dev/null 2>&1 || \
-        die "选择第三方镜像需要 sha256sum 来校验下载文件。" \
-            "Selecting a third-party mirror requires sha256sum to verify downloaded files."
+        die "Selecting a third-party mirror requires sha256sum to verify downloaded files."
     if ! fetch_official_release_metadata; then
         return 1
     fi
     if ! EXPECTED_MANIFEST_SHA256="$(release_asset_sha256 "$MANIFEST_NAME")"; then
-        log "GitHub Release 未提供 ${MANIFEST_NAME} 的 SHA-256 校验值，拒绝使用第三方镜像包。" \
-            "GitHub Release did not provide a SHA-256 digest for ${MANIFEST_NAME}; refusing the third-party mirror package."
+        log "GitHub Release did not provide a SHA-256 digest for ${MANIFEST_NAME}; refusing the third-party mirror package."
         return 1
     fi
 }
@@ -535,8 +502,7 @@ resolve_official_archive_sha256() {
     if EXPECTED_ARCHIVE_SHA256="$(release_asset_sha256 "$ARCHIVE_NAME")"; then
         return
     fi
-    log "GitHub Release 未提供 ${ARCHIVE_NAME} 的 SHA-256 校验值，拒绝使用第三方镜像包。" \
-        "GitHub Release did not provide a SHA-256 digest for ${ARCHIVE_NAME}; refusing the third-party mirror package."
+    log "GitHub Release did not provide a SHA-256 digest for ${ARCHIVE_NAME}; refusing the third-party mirror package."
     return 1
 }
 
@@ -545,7 +511,7 @@ release_download_base() {
         1) printf '%s/%s/releases/download/%s' "$GITHUB_RELEASE_URL" "$RELEASE_REPOSITORY" "$RELEASE_TAG" ;;
         2) printf '%s/%s/releases/download/%s' "$GH_PROXY_RELEASE_URL" "$RELEASE_REPOSITORY" "$RELEASE_TAG" ;;
         3) printf '%s/%s/-/releases/download/%s' "$CNB_RELEASE_URL" "$RELEASE_REPOSITORY" "$RELEASE_TAG" ;;
-        *) die "下载源选择无效。" "The selected download source is invalid." ;;
+        *) die "The selected download source is invalid." ;;
     esac
 }
 
@@ -599,15 +565,14 @@ probe_download_source() {
                 format_latency "$latency"
                 return
             fi
-            printf '%s' "$(msg '超时' 'timeout')"
+            printf '%s' "$(msg 'timeout')"
             return
         else
             probe_status=$?
         fi
     elif command -v wget >/dev/null 2>&1; then
         command -v timeout >/dev/null 2>&1 || \
-            die "wget 测试下载源需要 timeout 命令以限制为 ${SOURCE_PROBE_TIMEOUT_SECONDS} 秒。" \
-                "Testing download sources with wget requires timeout to enforce the ${SOURCE_PROBE_TIMEOUT_SECONDS}-second limit."
+            die "Testing download sources with wget requires timeout to enforce the ${SOURCE_PROBE_TIMEOUT_SECONDS}-second limit."
         started="$(date +%s%3N 2>/dev/null || true)"
         probe_command=(wget -q --tries=1 --timeout="$SOURCE_PROBE_TIMEOUT_SECONDS" -O /dev/null "$probe_url")
         probe_command=(timeout "$SOURCE_PROBE_TIMEOUT_SECONDS" "${probe_command[@]}")
@@ -617,23 +582,23 @@ probe_download_source() {
                 if (( finished - started < SOURCE_PROBE_TIMEOUT_SECONDS * 1000 )); then
                     printf '%d ms' "$((finished - started))"
                 else
-                    printf '%s' "$(msg '超时' 'timeout')"
+                    printf '%s' "$(msg 'timeout')"
                 fi
             else
-                printf '%s' "$(msg '可用' 'available')"
+                printf '%s' "$(msg 'available')"
             fi
             return
         else
             probe_status=$?
         fi
     else
-        die "未找到 curl 或 wget，无法测试下载源。" "Neither curl nor wget was found; download sources cannot be tested."
+        die "Neither curl nor wget was found; download sources cannot be tested."
     fi
 
     if (( probe_status == 28 || probe_status == 124 )); then
-        printf '%s' "$(msg '超时' 'timeout')"
+        printf '%s' "$(msg 'timeout')"
     else
-        printf '%s' "$(msg '不可用' 'unavailable')"
+        printf '%s' "$(msg 'unavailable')"
     fi
 }
 
@@ -641,28 +606,25 @@ select_download_source() {
     local source latency choice recommendation
 
     if [[ "$SKIP_SOURCE_PROBE" == true ]]; then
-        log "已按参数选择 $(download_source_name "$DOWNLOAD_SOURCE")，跳过延迟测试。" \
-            "Selected $(download_source_name "$DOWNLOAD_SOURCE") from the command line; skipping latency checks."
+        log "Selected $(download_source_name "$DOWNLOAD_SOURCE") from the command line; skipping latency checks."
         return
     fi
 
-    log "正在测试下载源延迟（达到 ${SOURCE_PROBE_TIMEOUT_SECONDS} 秒视为超时）..." \
-        "Testing download-source latency (timeouts at ${SOURCE_PROBE_TIMEOUT_SECONDS} seconds)..."
+    log "Testing download-source latency (timeouts at ${SOURCE_PROBE_TIMEOUT_SECONDS} seconds)..."
     for source in 1 2 3; do
         latency="$(probe_download_source "$source")"
         recommendation=""
         if [[ "$source" == "3" ]]; then
-            recommendation="$(msg '（推荐）' ' (recommended)')"
+            recommendation="$(msg ' (recommended)')"
         fi
         printf '%s. %s%s %s: %s\n' "$source" "$(download_source_name "$source")" \
-            "$recommendation" "$(msg '延迟' 'latency')" "$latency"
+            "$recommendation" "$(msg 'latency')" "$latency"
     done
 
     while :; do
-        printf '%s' "$(msg '请输入下载源编号 [1-3]: ' 'Choose a download source [1-3]: ')"
+        printf '%s' "$(msg 'Choose a download source [1-3]: ')"
         if ! IFS= read -r choice; then
-            die "无法读取下载源选择。请使用 -1/--1、-2/--2 或 -3/--3 指定下载源。" \
-                "Unable to read a download-source choice. Specify -1/--1, -2/--2, or -3/--3."
+            die "Unable to read a download-source choice. Specify -1/--1, -2/--2, or -3/--3."
         fi
         case "$choice" in
             1|2|3)
@@ -670,7 +632,7 @@ select_download_source() {
                 return
                 ;;
             *)
-                log "请输入 1、2 或 3。" "Enter 1, 2, or 3."
+                log "Enter 1, 2, or 3."
                 ;;
         esac
     done
@@ -689,14 +651,13 @@ require_runtime_dependencies() {
     local command_name
     for command_name in awk du find mktemp realpath sha256sum sort stat tar; do
         command -v "$command_name" >/dev/null 2>&1 || \
-            die "缺少运行安装器所需的命令：${command_name}。" \
-                "The installer requires the missing command: ${command_name}."
+            die "The installer requires the missing command: ${command_name}."
     done
 
     case "$PACKAGE_TYPE" in
-        deb) command -v dpkg-deb >/dev/null 2>&1 || die "未找到 dpkg-deb。" "dpkg-deb was not found." ;;
-        pkg.tar.*) command -v pacman >/dev/null 2>&1 || die "未找到 pacman。" "pacman was not found." ;;
-        *) die "无法确定 GNOME 软件包类型。" "Could not determine the GNOME package type." ;;
+        deb) command -v dpkg-deb >/dev/null 2>&1 || die "dpkg-deb was not found." ;;
+        pkg.tar.*) command -v pacman >/dev/null 2>&1 || die "pacman was not found." ;;
+        *) die "Could not determine the GNOME package type." ;;
     esac
 }
 
@@ -705,27 +666,26 @@ validate_archive_contents() {
     local archive_size members entry
 
     if ! archive_size="$(stat -c '%s' "$archive_file")" || ! [[ "$archive_size" =~ ^[0-9]+$ ]]; then
-        log "无法读取下载包的大小。" "Unable to read the downloaded archive size."
+        log "Unable to read the downloaded archive size."
         return 1
     fi
     if (( archive_size > MAX_ARCHIVE_BYTES )); then
-        log "下载包超过允许的大小。" "The downloaded archive exceeds the allowed size."
+        log "The downloaded archive exceeds the allowed size."
         return 1
     fi
     if ! members="$(tar -tzf "$archive_file")" || [[ -z "$members" ]]; then
-        log "下载包不是有效的非空 tar.gz 文件。" "The downloaded archive is not a valid non-empty tar.gz file."
+        log "The downloaded archive is not a valid non-empty tar.gz file."
         return 1
     fi
     while IFS= read -r entry; do
         case "$entry" in
             /*|.|./*|..|../*|*/.|*/./*|*/..|*/../*)
-                log "下载包包含不安全路径。" "The downloaded archive contains an unsafe path."
+                log "The downloaded archive contains an unsafe path."
                 return 1
                 ;;
             "anland-gnome-packages/${ARCHIVE_TARGET}/"*) ;;
             *)
-                log "下载包包含目标系统目录以外的文件。" \
-                    "The downloaded archive contains files outside the target system directory."
+                log "The downloaded archive contains files outside the target system directory."
                 return 1
                 ;;
         esac
@@ -743,8 +703,7 @@ validate_archive_contents() {
             }
         }
     '; then
-        log "下载包包含不允许的条目，或解压后会超过大小限制。" \
-            "The downloaded archive has a disallowed entry or exceeds the extraction size limit."
+        log "The downloaded archive has a disallowed entry or exceeds the extraction size limit."
         return 1
     fi
 }
@@ -758,8 +717,7 @@ validate_release_asset_checksum() {
     if ! actual_checksum="$(sha256sum "$asset_file" | awk '{print $1}')" || \
         ! [[ "$actual_checksum" =~ ^[0-9a-f]{64}$ ]] || \
         [[ "$actual_checksum" != "$expected_checksum" ]]; then
-        log "下载的 ${asset_name} 未通过 SHA-256 校验。" \
-            "Downloaded ${asset_name} failed SHA-256 verification."
+        log "Downloaded ${asset_name} failed SHA-256 verification."
         return 1
     fi
 }
@@ -807,8 +765,7 @@ download_packages_once() {
         resolve_official_manifest_sha256 || return 1
     fi
 
-    log "正在从 $(download_source_name "$DOWNLOAD_SOURCE") 下载 ${TARGET} 预编译包..." \
-        "Downloading ${TARGET} prebuilt packages from $(download_source_name "$DOWNLOAD_SOURCE")..."
+    log "Downloading ${TARGET} prebuilt packages from $(download_source_name "$DOWNLOAD_SOURCE")..."
     download_file "$base_url/$MANIFEST_NAME" "$manifest_file" || return 1
     if [[ -n "$EXPECTED_MANIFEST_SHA256" ]]; then
         validate_release_asset_checksum "$manifest_file" "$EXPECTED_MANIFEST_SHA256" "$MANIFEST_NAME" || return 1
@@ -825,23 +782,21 @@ download_packages_once() {
     fi
     validate_archive_contents "$archive_file" || return 1
     if ! tar --no-same-owner --no-same-permissions -xzf "$archive_file" -C "$WORK_DIR"; then
-        log "无法安全解压下载包。" "Unable to safely extract the downloaded archive."
+        log "Unable to safely extract the downloaded archive."
         return 1
     fi
 
     PACKAGE_DIR="$WORK_DIR/anland-gnome-packages/$ARCHIVE_TARGET"
     has_packages "$PACKAGE_DIR" || {
-        log "未能获取 ${TARGET} 的安装包。" "Could not obtain packages for ${TARGET}."
+        log "Could not obtain packages for ${TARGET}."
         return 1
     }
     if ! extracted_size="$(du -sb "$PACKAGE_DIR" | awk '{print $1}')" || ! [[ "$extracted_size" =~ ^[0-9]+$ ]] || (( extracted_size > MAX_EXTRACTED_BYTES )); then
-        log "解压后的软件包大小无效或超过限制。" \
-            "The extracted package size is invalid or exceeds the limit."
+        log "The extracted package size is invalid or exceeds the limit."
         return 1
     fi
     if ! validate_package_architecture; then
-        log "下载包中的软件包架构与当前系统不匹配。" \
-            "The package architecture in the archive does not match this system."
+        log "The package architecture in the archive does not match this system."
         return 1
     fi
 }
@@ -859,35 +814,33 @@ download_packages() {
             return
         fi
         if (( attempt < 3 )); then
-            log "Release 正在更新或网络暂时失败，准备重新获取（第 ${attempt} 次）。" \
-                "The Release is being updated or the network failed; retrying after attempt ${attempt}."
+            log "The Release is being updated or the network failed; retrying after attempt ${attempt}."
             sleep "$attempt"
         fi
     done
 
-    die "无法稳定获取 Release 包，请稍后重试。" \
-        "Unable to consistently download the Release package; please retry later."
+    die "Unable to consistently download the Release package; please retry later."
 }
 
 use_prepared_packages() {
     local prepared_work_dir prepared_package_dir
 
     prepared_work_dir="$(realpath -e "$PREPARED_WORK_DIR")" || \
-        die "预下载目录无效。" "The pre-downloaded package directory is invalid."
+        die "The pre-downloaded package directory is invalid."
     prepared_package_dir="$(realpath -e "$PREPARED_PACKAGE_DIR")" || \
-        die "预下载包目录无效。" "The pre-downloaded package directory is invalid."
+        die "The pre-downloaded package directory is invalid."
     [[ "$prepared_work_dir" =~ ^/tmp/anland-gnome\.[A-Za-z0-9]+$ ]] || \
-        die "预下载目录无效。" "The pre-downloaded package directory is invalid."
+        die "The pre-downloaded package directory is invalid."
     [[ "$prepared_package_dir" == "$prepared_work_dir/anland-gnome-packages/$ARCHIVE_TARGET" ]] || \
-        die "预下载包的目标系统不匹配。" "The pre-downloaded package target does not match this system."
+        die "The pre-downloaded package target does not match this system."
     [[ -d "$prepared_work_dir" && -d "$prepared_package_dir" ]] || \
-        die "预下载包已不存在。" "The pre-downloaded package directory no longer exists."
+        die "The pre-downloaded package directory no longer exists."
 
     WORK_DIR="$prepared_work_dir"
     PACKAGE_DIR="$prepared_package_dir"
-    has_packages "$PACKAGE_DIR" || die "预下载目录中没有可安装的软件包。" "The pre-downloaded directory has no installable packages."
+    has_packages "$PACKAGE_DIR" || die "The pre-downloaded directory has no installable packages."
     validate_package_architecture || \
-        die "预下载包中的软件包架构与当前系统不匹配。" "The pre-downloaded package architecture does not match this system."
+        die "The pre-downloaded package architecture does not match this system."
 }
 
 clear_stale_apt_holds() {
@@ -919,13 +872,12 @@ install_deb_packages() {
     local -a files packages
     local file package
 
-    command -v apt-get >/dev/null 2>&1 || die "未找到 apt-get。" "apt-get was not found."
-    command -v dpkg-deb >/dev/null 2>&1 || die "未找到 dpkg-deb。" "dpkg-deb was not found."
+    command -v apt-get >/dev/null 2>&1 || die "apt-get was not found."
+    command -v dpkg-deb >/dev/null 2>&1 || die "dpkg-deb was not found."
     mapfile -t files < <(find "$PACKAGE_DIR" -maxdepth 1 -type f -name '*.deb' -print | sort)
-    ((${#files[@]} > 0)) || die "没有可安装的 deb 包。" "No installable deb packages were found."
+    ((${#files[@]} > 0)) || die "No installable deb packages were found."
 
-    log "正在安装 ${#files[@]} 个 deb 包并自动处理依赖..." \
-        "Installing ${#files[@]} deb packages and resolving dependencies..."
+    log "Installing ${#files[@]} deb packages and resolving dependencies..."
     apt-get install -y --reinstall --allow-downgrades --allow-change-held-packages "${files[@]}"
 
     for file in "${files[@]}"; do
@@ -933,10 +885,10 @@ install_deb_packages() {
         [[ -n "$package" ]] && packages+=("$package")
     done
     mapfile -t packages < <(printf '%s\n' "${packages[@]}" | sort -u)
-    ((${#packages[@]} > 0)) || die "无法读取 deb 包名。" "Could not determine the deb package names."
+    ((${#packages[@]} > 0)) || die "Could not determine the deb package names."
 
     clear_stale_apt_holds "${packages[@]}"
-    log "正在设置 APT hold..." "Applying APT holds..."
+    log "Applying APT holds..."
     apt-mark hold "${packages[@]}"
     write_apt_hold_state "${packages[@]}"
     printf '  hold: %s\n' "${packages[@]}"
@@ -946,7 +898,7 @@ append_pacman_ignore_packages() {
     local package
     for package in "$@"; do
         [[ "$package" =~ ^[A-Za-z0-9@.+_-]+$ ]] || \
-            die "Arch 软件包名无效。" "The Arch package name is invalid."
+            die "The Arch package name is invalid."
         if awk -v package="$package" '
             $1 == "IgnorePkg" {
                 for (i = 3; i <= NF; i++) if ($i == package) found = 1
@@ -960,7 +912,7 @@ append_pacman_ignore_packages() {
         elif grep -qE '^\[options\][[:space:]]*$' /etc/pacman.conf; then
             sed -i "/^\[options\][[:space:]]*$/a IgnorePkg = ${package}" /etc/pacman.conf
         else
-            die "pacman.conf 缺少 [options] 段。" "pacman.conf has no [options] section."
+            die "pacman.conf has no [options] section."
         fi
     done
 }
@@ -970,11 +922,11 @@ write_pacman_package_state() {
     state_dir="${PACMAN_PACKAGE_STATE%/*}"
     install -d -m 0755 "$state_dir"
     temporary_file="$(mktemp "$PACMAN_PACKAGE_STATE.tmp.XXXXXXXX")" || \
-        die "无法记录 Arch Mutter/Xwayland 软件包。" "Could not record the Arch Mutter/Xwayland packages."
+        die "Could not record the Arch Mutter/Xwayland packages."
     if ! printf '%s\n' "$@" | sort -u > "$temporary_file" || \
         ! chmod 0644 "$temporary_file" || ! mv -f -- "$temporary_file" "$PACMAN_PACKAGE_STATE"; then
         rm -f -- "$temporary_file"
-        die "无法记录 Arch Mutter/Xwayland 软件包。" "Could not record the Arch Mutter/Xwayland packages."
+        die "Could not record the Arch Mutter/Xwayland packages."
     fi
 }
 
@@ -982,11 +934,11 @@ install_arch_packages() {
     local file package_name pacman_conf mutter_count=0 xwayland_count=0
     local -a archive_files=() files=() packages=()
 
-    command -v pacman >/dev/null 2>&1 || die "未找到 pacman。" "pacman was not found."
+    command -v pacman >/dev/null 2>&1 || die "pacman was not found."
     mapfile -t archive_files < <(find "$PACKAGE_DIR" -maxdepth 1 -type f -name '*.pkg.tar.*' -print | sort)
     for file in "${archive_files[@]}"; do
         package_name="$(LC_ALL=C pacman -Qp "$file" | awk 'NR == 1 { print $1 }')" || \
-            die "无法读取 Arch 软件包名。" "Could not read an Arch package name."
+            die "Could not read an Arch package name."
         case "$package_name" in
             mutter)
                 files+=("$file")
@@ -999,12 +951,12 @@ install_arch_packages() {
                 ((xwayland_count += 1))
                 ;;
             *)
-                die "Arch GNOME 归档包含不支持的软件包：$package_name。" "The Arch GNOME archive contains an unsupported package: $package_name."
+                die "The Arch GNOME archive contains an unsupported package: $package_name."
                 ;;
         esac
     done
     if ((${#files[@]} != 2 || mutter_count != 1 || xwayland_count != 1)); then
-        die "归档必须包含一个 Mutter 和一个 patched Xwayland 包。" "The archive must contain one Mutter and one patched Xwayland package."
+        die "The archive must contain one Mutter and one patched Xwayland package."
     fi
 
     pacman_conf="$(mktemp -t anland-gnome-pacman.XXXXXXXX)"
@@ -1015,16 +967,16 @@ install_arch_packages() {
         sed -i '/^\[options\][[:space:]]*$/a LocalFileSigLevel = Optional' "$pacman_conf"
     else
         rm -f -- "$pacman_conf"
-        die "pacman.conf 缺少 [options] 段。" "pacman.conf has no [options] section."
+        die "pacman.conf has no [options] section."
     fi
     if ! pacman --config "$pacman_conf" -U --noconfirm "${files[@]}"; then
         rm -f -- "$pacman_conf"
-        die "Arch Mutter/Xwayland 软件包安装失败。" "Failed to install the Arch Mutter/Xwayland packages."
+        die "Failed to install the Arch Mutter/Xwayland packages."
     fi
     rm -f -- "$pacman_conf"
 
     if ! pacman -Q "${packages[@]}" >/dev/null; then
-        die "无法确认已安装 Arch Mutter/Xwayland 软件包。" "Could not verify that the Arch Mutter/Xwayland packages were installed."
+        die "Could not verify that the Arch Mutter/Xwayland packages were installed."
     fi
     append_pacman_ignore_packages "${packages[@]}"
     write_pacman_package_state "${packages[@]}"
@@ -1035,7 +987,6 @@ install_arch_packages() {
 
 main() {
     local archive_version
-    detect_language
     parse_arguments "$@"
     detect_target
     check_architecture
@@ -1057,7 +1008,7 @@ main() {
     case "$PACKAGE_TYPE" in
         deb) install_deb_packages ;;
         pkg.tar.*) install_arch_packages ;;
-        *) die "无法确定 GNOME 软件包类型。" "Could not determine the GNOME package type." ;;
+        *) die "Could not determine the GNOME package type." ;;
     esac
 
     if [[ -n "$ARCHIVE_NAME" ]]; then
@@ -1068,8 +1019,7 @@ main() {
     fi
     record_component_version "$archive_version"
     update_desktop_config
-    log "安装完成，patched Mutter 已锁定。" \
-        "Installation complete; patched Mutter is now locked."
+    log "Installation complete; patched Mutter is now locked."
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
