@@ -14,8 +14,16 @@ configure_environment() {
         XDG_CURRENT_DESKTOP=GNOME
         XDG_SESSION_DESKTOP=gnome
         GNOME_SHELL_SESSION_MODE=gnome
-        WAYLAND_DISPLAY=wayland-anland
-        GNOME_WAYLAND_DISPLAY=wayland-anland
+        # Must match the socket mutter actually creates. Nothing passes
+        # --wayland-display in this session, so mutter auto-picks "wayland-0";
+        # naming it "wayland-anland" here pointed every client at a socket that
+        # never exists. kde.sh and kde-mobile.sh already use wayland-0. The
+        # failure mode is ugly: GNOME app-drawer launches are forked by
+        # gnome-shell and inherit ITS environment, so apps died with
+        # "Failed to create wl_display (No such file or directory)" and
+        # "Could not load the Qt platform plugin wayland".
+        WAYLAND_DISPLAY=wayland-0
+        GNOME_WAYLAND_DISPLAY=wayland-0
         QT_QPA_PLATFORM=wayland
         ANLAND=1
         ANLAND_SOCKET=/run/display.sock
